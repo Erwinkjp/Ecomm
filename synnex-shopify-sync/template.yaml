@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Sync data and inventory from TD Synnex to Shopify (Lambda)
+
+Parameters:
+  ShopifyStore:
+    Type: String
+    Description: Shopify store hostname (e.g. your-store from your-store.myshopify.com)
+  ShopifyAccessToken:
+    Type: String
+    NoEcho: true
+    Description: Shopify Admin API access token (write_products, write_inventory)
+  ShopifyLocationId:
+    Type: String
+    Description: Shopify location GID (e.g. gid://shopify/Location/123456)
+  SynnexApiKey:
+    Type: String
+    NoEcho: true
+    Description: TD Synnex API key
+  SynnexBaseUrl:
+    Type: String
+    Default: 'https://api.synnex.com'
+    Description: TD Synnex API base URL (override for sandbox)
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 256
+    Runtime: nodejs20.x
+
+Resources:
+  SynnexShopifySyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/index.handler
+      Description: Sync products and inventory from TD Synnex to Shopify
+      Environment:
+        Variables:
+          SHOPIFY_STORE: !Ref ShopifyStore
+          SHOPIFY_ACCESS_TOKEN: !Ref ShopifyAccessToken
+          SHOPIFY_LOCATION_ID: !Ref ShopifyLocationId
+          SYNNEX_API_KEY: !Ref SynnexApiKey
+          SYNNEX_BASE_URL: !Ref SynnexBaseUrl
+      Events:
+        ScheduleSync:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Description: Run Synnex to Shopify sync every hour
+            Enabled: true
+
+Outputs:
+  SynnexShopifySyncFunctionArn:
+    Description: ARN of the sync Lambda
+    Value: !GetAtt SynnexShopifySyncFunction.Arn
+  SynnexShopifySyncFunctionName:
+    Description: Name of the sync Lambda
+    Value: !Ref SynnexShopifySyncFunction

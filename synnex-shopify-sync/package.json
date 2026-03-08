@@ -1,0 +1,14 @@
+{
+  "name": "synnex-shopify-sync",
+  "version": "1.0.0",
+  "description": "AWS Lambda app that syncs data and inventory from TD Synnex to Shopify",
+  "main": "src/index.js",
+  "scripts": {
+    "package": "sam build",
+    "deploy": "sam build && sam deploy --guided",
+    "invoke": "sam local invoke SynnexShopifySyncFunction --event events/sync.json"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
