@@ -187,8 +187,38 @@ async function getProductBySku(sku, config = {}) {
   };
 }
 
+/**
+ * List SKUs and inventory item IDs for all product variants (for XML P&A sync).
+ * Returns array of { sku, inventoryItemId }.
+ */
+async function getVariantSkusAndInventoryItemIds(config = {}) {
+  const out = [];
+  let cursor = null;
+  do {
+    const query = `
+      query variants($cursor: String) {
+        productVariants(first: 250, after: $cursor) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            sku
+            inventoryItem { id }
+          }
+        }
+      }
+    `;
+    const data = await graphql(query, { cursor }, config);
+    const variants = data.productVariants;
+    variants.nodes.forEach((n) => {
+      if (n.sku && n.inventoryItem?.id) out.push({ sku: n.sku, inventoryItemId: n.inventoryItem.id });
+    });
+    cursor = variants.pageInfo.hasNextPage ? variants.pageInfo.endCursor : null;
+  } while (cursor);
+  return out;
+}
+
 module.exports = {
   productSet,
   inventorySetQuantities,
   getProductBySku,
+  getVariantSkusAndInventoryItemIds,
 };

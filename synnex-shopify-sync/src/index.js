@@ -4,12 +4,26 @@
  * - API Gateway / direct invoke: optional body { syncProducts?: boolean, limit?: number }.
  */
 const { runSync } = require('./sync/sync');
+const { listZipEntriesFromSftp, isSftpConfigured } = require('./synnex/sftpSource');
 
 function isSyncEvent(body) {
   return body !== null && typeof body === 'object';
 }
 
 async function handler(event, _context) {
+  // Special action: only list files inside the SFTP zip (no sync). Use test event {"action": "listZip"}.
+  const body = event && typeof event === 'object' && event.body;
+  const parsed = typeof body === 'string' ? (() => { try { return JSON.parse(body); } catch (_) { return event; } })() : event;
+  if (parsed && parsed.action === 'listZip') {
+    if (!isSftpConfigured()) return { error: 'SFTP not configured', hint: 'Set SYNNEX_SFTP_* env vars' };
+    try {
+      const list = await listZipEntriesFromSftp();
+      return list;
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
   let options = { syncProducts: true, limit: undefined };
 
   if (event && typeof event === 'object' && event.body) {
@@ -42,6 +56,7 @@ async function handler(event, _context) {
   }
 
   return {
+    productsFetched: result.productsFetched,
     synced: result.productsSynced,
     inventoryUpdated: result.inventoryUpdated,
     errors: result.errors,

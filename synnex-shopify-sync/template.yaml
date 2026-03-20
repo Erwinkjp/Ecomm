@@ -16,17 +16,98 @@ Parameters:
   SynnexApiKey:
     Type: String
     NoEcho: true
-    Description: TD Synnex API key
+    Default: ''
+    Description: TD Synnex API key (leave blank if using file or XML source only)
   SynnexBaseUrl:
     Type: String
     Default: 'https://api.synnex.com'
     Description: TD Synnex API base URL (override for sandbox)
+  # Optional: Real-Time XML Price & Availability (leave blank to use REST API or file instead)
+  SynnexXmlUrl:
+    Type: String
+    Default: ''
+    Description: '(Optional) TD Synnex XML P&A endpoint URL. Set to use Real-Time XML instead of REST.'
+  SynnexXmlCustomerNo:
+    Type: String
+    Default: ''
+    Description: '(Optional) XML customer number'
+  SynnexXmlUsername:
+    Type: String
+    Default: ''
+    Description: '(Optional) XML username'
+  SynnexXmlPassword:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: '(Optional) XML password'
+  # Optional: S3 file source (XML or flat file)
+  SynnexFileS3Bucket:
+    Type: String
+    Default: ''
+    Description: '(Optional) S3 bucket containing Synnex XML/flat file. Set with SynnexFileS3Key.'
+  SynnexFileS3Key:
+    Type: String
+    Default: ''
+    Description: '(Optional) S3 object key for the file (e.g. synnex/pa.xml).'
+  # Optional: SFTP source (download ZIP/XML from TD Synnex SFTP)
+  SynnexSftpHost:
+    Type: String
+    Default: ''
+    Description: '(Optional) SFTP host (e.g. sftp.us.tdsynnex.com). Set with username, path, and password or secret.'
+  SynnexSftpPort:
+    Type: String
+    Default: '22'
+    Description: '(Optional) SFTP port'
+  SynnexSftpUsername:
+    Type: String
+    Default: ''
+    Description: '(Optional) SFTP username'
+  SynnexSftpPassword:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: '(Optional) SFTP password. Prefer SynnexSftpSecretArn for production.'
+  SynnexSftpSecretArn:
+    Type: String
+    Default: ''
+    Description: '(Optional) Secrets Manager secret ARN with "password" key. Overrides SynnexSftpPassword if set.'
+  SynnexSftpRemotePath:
+    Type: String
+    Default: ''
+    Description: '(Optional) Remote file path (e.g. /698655.zip or /synnex-products-77112023.zip)'
+  # Optional: only sync these part numbers (e.g. 1/4 of catalog). File = one SKU per line.
+  SynnexSyncAllowlistS3Bucket:
+    Type: String
+    Default: ''
+    Description: '(Optional) S3 bucket for allowlist file. Use with SynnexSyncAllowlistS3Key. Leave blank to sync all.'
+  SynnexSyncAllowlistS3Key:
+    Type: String
+    Default: ''
+    Description: '(Optional) S3 key for allowlist file (one part number per line). Or set SYNNEX_SYNC_ALLOWLIST (comma-separated) in Lambda env.'
+  # Optional: only sync these brands and/or categories (comma-separated). Case-insensitive.
+  SynnexSyncFilterBrands:
+    Type: String
+    Default: ''
+    Description: '(Optional) Only sync these brands/manufacturers (comma-separated, e.g. HP,Dell,Lenovo).'
+  SynnexSyncFilterCategories:
+    Type: String
+    Default: ''
+    Description: '(Optional) Only sync these categories (comma-separated). Must match XML/flat file category field.'
+
+Conditions:
+  HasSynnexFileBucket: !Not [!Equals [!Ref SynnexFileS3Bucket, '']]
+  HasSynnexAllowlistBucket: !Not [!Equals [!Ref SynnexSyncAllowlistS3Bucket, '']]
+  HasSynnexSftp: !And
+    - !Not [!Equals [!Ref SynnexSftpHost, '']]
+    - !Not [!Equals [!Ref SynnexSftpUsername, '']]
+    - !Not [!Equals [!Ref SynnexSftpRemotePath, '']]
+  HasSynnexSftpSecret: !Not [!Equals [!Ref SynnexSftpSecretArn, '']]
 
 Globals:
   Function:
-    Timeout: 300
-    MemorySize: 256
-    Runtime: nodejs20.x
+    Timeout: 900
+    MemorySize: 2048
+    Runtime: nodejs22.x
 
 Resources:
   SynnexShopifySyncFunction:
@@ -42,6 +123,47 @@ Resources:
           SHOPIFY_LOCATION_ID: !Ref ShopifyLocationId
           SYNNEX_API_KEY: !Ref SynnexApiKey
           SYNNEX_BASE_URL: !Ref SynnexBaseUrl
+          SYNNEX_XML_URL: !Ref SynnexXmlUrl
+          SYNNEX_XML_CUSTOMER_NO: !Ref SynnexXmlCustomerNo
+          SYNNEX_XML_USERNAME: !Ref SynnexXmlUsername
+          SYNNEX_XML_PASSWORD: !Ref SynnexXmlPassword
+          SYNNEX_FILE_S3_BUCKET: !Ref SynnexFileS3Bucket
+          SYNNEX_FILE_S3_KEY: !Ref SynnexFileS3Key
+          SYNNEX_SFTP_HOST: !Ref SynnexSftpHost
+          SYNNEX_SFTP_PORT: !Ref SynnexSftpPort
+          SYNNEX_SFTP_USERNAME: !Ref SynnexSftpUsername
+          SYNNEX_SFTP_PASSWORD: !Ref SynnexSftpPassword
+          SYNNEX_SFTP_SECRET_ARN: !Ref SynnexSftpSecretArn
+          SYNNEX_SFTP_REMOTE_PATH: !Ref SynnexSftpRemotePath
+          SYNNEX_SYNC_ALLOWLIST_S3_BUCKET: !Ref SynnexSyncAllowlistS3Bucket
+          SYNNEX_SYNC_ALLOWLIST_S3_KEY: !Ref SynnexSyncAllowlistS3Key
+          SYNNEX_SYNC_FILTER_BRANDS: !Ref SynnexSyncFilterBrands
+          SYNNEX_SYNC_FILTER_CATEGORIES: !Ref SynnexSyncFilterCategories
+      Policies:
+        - !If
+            - HasSynnexFileBucket
+            - Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: s3:GetObject
+                  Resource: !Sub 'arn:aws:s3:::${SynnexFileS3Bucket}/*'
+            - !Ref AWS::NoValue
+        - !If
+            - HasSynnexSftpSecret
+            - Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref SynnexSftpSecretArn
+            - !Ref AWS::NoValue
+        - !If
+            - HasSynnexAllowlistBucket
+            - Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: s3:GetObject
+                  Resource: !Sub 'arn:aws:s3:::${SynnexSyncAllowlistS3Bucket}/*'
+            - !Ref AWS::NoValue
       Events:
         ScheduleSync:
           Type: Schedule

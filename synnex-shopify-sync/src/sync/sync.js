@@ -1,9 +1,33 @@
 /**
  * Sync orchestration: pull from TD Synnex, map to Shopify, push products and inventory.
+ * Supports: REST API, flat file, or Real-Time XML (Price & Availability).
  */
 const { getProductsWithAvailability } = require('../synnex/client');
-const { productSet, inventorySetQuantities, getProductBySku } = require('../shopify/client');
+const { getProductsWithAvailabilityFromFile, isFileSourceConfigured } = require('../synnex/fileSource');
+const { loadAllowlist } = require('../synnex/allowlist');
+const { getPriceAvailabilityFromXml, isXmlConfigured } = require('../synnex/xmlClient');
+const { productSet, inventorySetQuantities, getProductBySku, getVariantSkusAndInventoryItemIds } = require('../shopify/client');
 const { synnexToShopifyProduct } = require('./transform');
+const { filterByBrandAndCategory } = require('./filterByBrandCategory');
+
+async function fetchFromSynnex() {
+  const allowlist = await loadAllowlist();
+  if (isFileSourceConfigured()) {
+    return getProductsWithAvailabilityFromFile(allowlist);
+  }
+  if (isXmlConfigured()) {
+    const variants = await getVariantSkusAndInventoryItemIds();
+    const partNumbers = [...new Set(variants.map((v) => v.sku).filter(Boolean))];
+    if (partNumbers.length === 0) return [];
+    const pAndA = await getPriceAvailabilityFromXml(partNumbers);
+    const bySku = new Map(variants.map((v) => [v.sku, v.inventoryItemId]));
+    return pAndA.map((p) => ({
+      ...p,
+      _inventoryItemId: bySku.get(p.partNumber),
+    }));
+  }
+  return getProductsWithAvailability();
+}
 
 /**
  * Full sync: fetch from Synnex, optionally create/update products, then set inventory.
@@ -22,12 +46,13 @@ async function runSync(options = {}) {
 
   let items;
   try {
-    items = await getProductsWithAvailability();
+    items = await fetchFromSynnex();
   } catch (e) {
     result.errors.push(`Synnex fetch failed: ${e instanceof Error ? e.message : String(e)}`);
     return result;
   }
 
+  items = filterByBrandAndCategory(items);
   result.productsFetched = items.length;
   const toProcess = limit != null ? items.slice(0, limit) : items;
 
@@ -35,9 +60,9 @@ async function runSync(options = {}) {
 
   for (const item of toProcess) {
     try {
-      let inventoryItemId;
+      let inventoryItemId = item._inventoryItemId;
 
-      if (syncProducts) {
+      if (!inventoryItemId && syncProducts && !isXmlConfigured()) {
         const shopifyProduct = synnexToShopifyProduct(item);
         const setResult = await productSet(shopifyProduct);
         if (setResult.inventoryItemIds?.[0]) {
