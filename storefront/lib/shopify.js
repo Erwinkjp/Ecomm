@@ -29,6 +29,8 @@ const PRODUCT_CARD_FRAGMENT = `
     id
     handle
     title
+    vendor
+    productType
     featuredImage {
       url
       altText
@@ -37,6 +39,13 @@ const PRODUCT_CARD_FRAGMENT = `
       minVariantPrice {
         amount
         currencyCode
+      }
+    }
+    variants(first: 1) {
+      nodes {
+        sku
+        availableForSale
+        quantityAvailable
       }
     }
   }

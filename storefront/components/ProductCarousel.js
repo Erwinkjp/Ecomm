@@ -31,6 +31,12 @@ export default function ProductCarousel({ products }) {
         const price = p.priceRange?.minVariantPrice;
         const href = productCheckoutUrl(p.handle);
 
+        const variant = p.variants?.nodes?.[0];
+        const qty = variant?.quantityAvailable ?? null;
+        const available = variant?.availableForSale ?? true;
+        const stockLabel = !available || qty === 0 ? 'Out of stock' : qty != null && qty <= 5 ? `Low stock` : null;
+        const stockClass = !available || qty === 0 ? 'stock-badge stock-badge--out' : 'stock-badge stock-badge--low';
+
         return (
           <article key={p.id} className="carousel-card">
             <Link href={href} className="carousel-card__image" target="_blank" rel="noopener noreferrer">
@@ -51,8 +57,16 @@ export default function ProductCarousel({ products }) {
                   No image
                 </div>
               )}
+              {stockLabel && (
+                <span className={stockClass}>{stockLabel}</span>
+              )}
             </Link>
             <div className="carousel-card__body">
+              {(p.vendor || p.productType) && (
+                <p className="carousel-card__meta">
+                  {[p.vendor, p.productType].filter(Boolean).join(' · ')}
+                </p>
+              )}
               <Link href={href} target="_blank" rel="noopener noreferrer">
                 <h3 className="carousel-card__title">{p.title}</h3>
               </Link>

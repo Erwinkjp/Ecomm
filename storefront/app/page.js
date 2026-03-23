@@ -17,6 +17,16 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <section className="guides-section" id="guides" aria-labelledby="guides-heading">
+        <div className="container">
+          <h2 id="guides-heading">Guides &amp; resources</h2>
+          <p className="guides-section__lead">
+            We&apos;re building setup tips, compatibility notes, and buying guides. Check back soon — or open{' '}
+            <strong>Products</strong> in the header to browse the full catalog by category.
+          </p>
+        </div>
+      </section>
+
       <section className="carousel-section">
         <div className="container">
           <div className="carousel-section__head">
