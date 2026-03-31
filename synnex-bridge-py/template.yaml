@@ -1,0 +1,299 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Shopify ↔ TD Synnex bridge (Python 3.12, DynamoDB, Phase 1–3)
+
+Parameters:
+  ShopifyStore:
+    Type: String
+    Description: Shopify store hostname (e.g. your-store from your-store.myshopify.com)
+  ShopifyAccessToken:
+    Type: String
+    NoEcho: true
+    Description: Shopify Admin API access token
+  ShopifyLocationId:
+    Type: String
+    Description: Shopify location GID (e.g. gid://shopify/Location/123456)
+  ShopifyWebhookSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Secret for X-Shopify-Hmac-Sha256 verification (create in Shopify custom app webhook)
+  SynnexApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: TD Synnex API key (optional for XML-only Phase 1; used for REST PO/invoice when configured)
+  SynnexBaseUrl:
+    Type: String
+    Default: 'https://api.synnex.com'
+    Description: TD Synnex REST base URL
+  SynnexXmlUrl:
+    Type: String
+    Default: ''
+    Description: TD Synnex XML endpoint (e.g. Price & Availability URL)
+  SynnexXmlCustomerNo:
+    Type: String
+    Default: ''
+  SynnexXmlUsername:
+    Type: String
+    Default: ''
+  SynnexXmlPassword:
+    Type: String
+    NoEcho: true
+    Default: ''
+  SynnexXmlRequestVersion:
+    Type: String
+    Default: ''
+  SynnexXmlSkuChunkSize:
+    Type: String
+    Default: '40'
+  SynnexXmlSyncPrices:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+  SynnexXmlMsrpAsCompareAt:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  SynnexPoBaseUrl:
+    Type: String
+    Default: ''
+    Description: Optional REST base for purchase orders (Phase 2)
+  SynnexInvoiceBaseUrl:
+    Type: String
+    Default: ''
+    Description: Optional REST base for invoices (Phase 3)
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 512
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        SHOPIFY_STORE: !Ref ShopifyStore
+        SHOPIFY_ACCESS_TOKEN: !Ref ShopifyAccessToken
+        SHOPIFY_LOCATION_ID: !Ref ShopifyLocationId
+        SYNNEX_API_KEY: !Ref SynnexApiKey
+        SYNNEX_BASE_URL: !Ref SynnexBaseUrl
+        SYNNEX_XML_URL: !Ref SynnexXmlUrl
+        SYNNEX_XML_CUSTOMER_NO: !Ref SynnexXmlCustomerNo
+        SYNNEX_XML_USERNAME: !Ref SynnexXmlUsername
+        SYNNEX_XML_PASSWORD: !Ref SynnexXmlPassword
+        SYNNEX_XML_REQUEST_VERSION: !Ref SynnexXmlRequestVersion
+        SYNNEX_XML_SKU_CHUNK_SIZE: !Ref SynnexXmlSkuChunkSize
+        SYNNEX_XML_SYNC_PRICES: !Ref SynnexXmlSyncPrices
+        SYNNEX_XML_MSRP_AS_COMPARE_AT: !Ref SynnexXmlMsrpAsCompareAt
+        SYNNEX_PO_BASE_URL: !Ref SynnexPoBaseUrl
+        SYNNEX_INVOICE_BASE_URL: !Ref SynnexInvoiceBaseUrl
+        PRODUCTS_TABLE_NAME: !Ref ProductsTable
+        SYNC_STATE_TABLE_NAME: !Ref SyncStateTable
+        OUTBOX_TABLE_NAME: !Ref OutboxTable
+        ORDERS_TABLE_NAME: !Ref OrdersTable
+        SHOPIFY_WEBHOOK_SECRET: !Ref ShopifyWebhookSecret
+        ORDER_WEBHOOK_QUEUE_URL: !Ref OrderWebhookQueue
+
+Resources:
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+
+  OrderWebhookQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 360
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt OrderWebhookDLQ.Arn
+        maxReceiveCount: 5
+
+  OrderWebhookDLQ:
+    Type: AWS::SQS::Queue
+
+  ProductsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sku
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sku
+          KeyType: HASH
+
+  SyncStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+
+  OutboxTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: N
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: shopify_order_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: shopify_order_id
+          KeyType: HASH
+
+  IngestFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: python3.12
+    Properties:
+      CodeUri: src/
+      Handler: handlers.ingest.lambda_handler
+      Description: Synnex XML → DynamoDB + outbox
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SyncStateTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OutboxTable
+      Events:
+        IngestSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Enabled: true
+
+  ShopifySyncFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: python3.12
+    Properties:
+      CodeUri: src/
+      Handler: handlers.shopify_sync.lambda_handler
+      Description: Outbox → Shopify inventory and prices
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OutboxTable
+      Events:
+        SyncSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Enabled: true
+
+  WebhookFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: python3.12
+    Properties:
+      CodeUri: src/
+      Handler: handlers.webhook_shopify.lambda_handler
+      Description: Shopify webhook receiver → SQS
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt OrderWebhookQueue.QueueName
+      Events:
+        WebhookApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /webhooks/shopify
+            Method: POST
+
+  OrderProcessorFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: python3.12
+    Properties:
+      CodeUri: src/
+      Handler: handlers.order_processor.lambda_handler
+      Description: SQS → Synnex PO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        OrderQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt OrderWebhookQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  PoStatusFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: python3.12
+    Properties:
+      CodeUri: src/
+      Handler: handlers.po_status_sync.lambda_handler
+      Description: Poll Synnex PO status → order metafields
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        PoStatusSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 minutes)
+            Enabled: true
+
+  InvoiceSyncFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: python3.12
+    Properties:
+      CodeUri: src/
+      Handler: handlers.invoice_sync.lambda_handler
+      Description: Invoice metadata → order metafields
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        InvoiceSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Enabled: true
+
+Outputs:
+  HttpApiUrl:
+    Description: Base URL for HTTP API (webhook path /webhooks/shopify)
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  WebhookUrl:
+    Description: POST this URL in Shopify for orders/paid (or orders/create)
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/webhooks/shopify'
+  ProductsTableName:
+    Value: !Ref ProductsTable
+  OutboxTableName:
+    Value: !Ref OutboxTable
+  OrderWebhookQueueUrl:
+    Value: !Ref OrderWebhookQueue

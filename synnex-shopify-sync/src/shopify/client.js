@@ -200,6 +200,7 @@ async function getVariantSkusAndInventoryItemIds(config = {}) {
         productVariants(first: 250, after: $cursor) {
           pageInfo { hasNextPage endCursor }
           nodes {
+            id
             sku
             inventoryItem { id }
           }
@@ -209,11 +210,52 @@ async function getVariantSkusAndInventoryItemIds(config = {}) {
     const data = await graphql(query, { cursor }, config);
     const variants = data.productVariants;
     variants.nodes.forEach((n) => {
-      if (n.sku && n.inventoryItem?.id) out.push({ sku: n.sku, inventoryItemId: n.inventoryItem.id });
+      if (n.id && n.sku && n.inventoryItem?.id) {
+        out.push({ sku: n.sku, variantId: n.id, inventoryItemId: n.inventoryItem.id });
+      }
     });
     cursor = variants.pageInfo.hasNextPage ? variants.pageInfo.endCursor : null;
   } while (cursor);
   return out;
+}
+
+/**
+ * Update a variant's selling price and optional compare-at price.
+ */
+async function updateVariantPricing({ variantId, price, compareAtPrice }, config = {}) {
+  if (!variantId) throw new Error('variantId is required');
+  if (!Number.isFinite(Number(price))) throw new Error('price must be a finite number');
+
+  const input = {
+    id: variantId,
+    price: Number(price).toFixed(2),
+  };
+  if (compareAtPrice != null && Number.isFinite(Number(compareAtPrice)) && Number(compareAtPrice) > 0) {
+    input.compareAtPrice = Number(compareAtPrice).toFixed(2);
+  }
+
+  const mutation = `
+    mutation productVariantUpdate($input: ProductVariantInput!) {
+      productVariantUpdate(input: $input) {
+        productVariant {
+          id
+          price
+          compareAtPrice
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const data = await graphql(mutation, { input }, config);
+  const result = data.productVariantUpdate;
+  if (result.userErrors?.length) {
+    throw new Error(`productVariantUpdate: ${result.userErrors.map((e) => e.message).join('; ')}`);
+  }
+  return result.productVariant;
 }
 
 module.exports = {
@@ -221,4 +263,5 @@ module.exports = {
   inventorySetQuantities,
   getProductBySku,
   getVariantSkusAndInventoryItemIds,
+  updateVariantPricing,
 };

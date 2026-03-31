@@ -49,6 +49,7 @@ async function handler(event, _context) {
       body: JSON.stringify({
         productsFetched: result.productsFetched,
         productsSynced: result.productsSynced,
+        pricesUpdated: result.pricesUpdated,
         inventoryUpdated: result.inventoryUpdated,
         errors: result.errors,
       }),
@@ -58,6 +59,7 @@ async function handler(event, _context) {
   return {
     productsFetched: result.productsFetched,
     synced: result.productsSynced,
+    pricesUpdated: result.pricesUpdated,
     inventoryUpdated: result.inventoryUpdated,
     errors: result.errors,
   };

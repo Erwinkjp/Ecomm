@@ -1,0 +1,17 @@
+# Example SAM CLI config — do not commit real secrets; use --parameter-overrides or CI secrets.
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "synnex-bridge-py"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
