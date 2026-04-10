@@ -4,40 +4,66 @@ AWS Lambda application that syncs **product data** and **inventory** from **TD S
 
 ## Features
 
-- **TD Synnex** data source (one of):
-  - **SFTP**: Download ZIP/XML from TD Synnex SFTP (e.g. nightly Price & Availability file); extract in Lambda and sync.
-  - **REST API**: Products + price/availability endpoints (when available).
-  - **Flat file**: Price & Availability or Hourly Inventory flat file from S3 or URL.
-  - **Real-Time XML**: XML Price & Availability service; part numbers = Shopify product SKUs (inventory-only sync).
-- **Shopify**: Uses Admin GraphQL API — `productSet` for product create/update and `inventorySetQuantities` for stock levels.
+- **TD Synnex** data source (first match wins):
+  1. **Real-time XML P&A** — when `SYNNEX_XML_*` is fully set; US prod: `https://ec.us.tdsynnex.com/SynnexXML/PriceAvailability` (price + qty) or `.../SynnexXML/Availability` (qty only); uses Shopify variant SKUs as part numbers.
+  2. **Flat file** — CSV (S3, URL, or SFTP).
+  3. **REST API** — Partner JSON when XML is not configured and no file source is configured (paths from OpenAPI).
+- **Shopify**: Admin GraphQL — `productSet` for product create/update and `inventorySetQuantities` for stock levels.
 - **Sync modes**:
-  - Full sync: create/update products in Shopify and set inventory (REST or file source).
-  - Inventory-only: update quantities for existing products by SKU (all sources; XML is inventory-only by design).
+  - Full sync: create/update products in Shopify and set inventory.
+  - Inventory-only: `syncProducts: false` — update quantities for existing SKUs only.
 
 ## Prerequisites
 
 - **TD Synnex**: EC Express account and API access (e.g. Price & Availability API). Request access via helpdeskus@tdsynnex.com if needed.
-- **Shopify**: Store with Admin API access token scopes `write_products` and `write_inventory`, and a location ID for inventory.
+- **Shopify**: Dev Dashboard app — **Client ID** and **Client secret** ([client credentials](https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens)); Admin API scopes for products and inventory; a **location ID** for stock updates.
 - **Node.js 22+** and **AWS SAM CLI** for build/deploy.
 
 ## Environment variables
 
-**Shopify (always):**
+**Shopify:**
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `SHOPIFY_STORE` | Yes | Store hostname (e.g. `your-store` from `your-store.myshopify.com`) |
-| `SHOPIFY_ACCESS_TOKEN` | Yes | Admin API access token |
+| `SHOPIFY_CLIENT_ID` | Yes | Dev Dashboard → app → **Settings** → **Credentials** → Client ID |
+| `SHOPIFY_CLIENT_SECRET` | Yes | Same place → Client secret |
 | `SHOPIFY_LOCATION_ID` | Yes | Location GID for inventory (e.g. `gid://shopify/Location/123456`) |
 
-**Synnex — REST API** (default if no file/XML configured):
+The Lambda uses Shopify’s [client credentials grant](https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens): it exchanges the Client ID and secret for a session (refreshed automatically before expiry).
+
+**Synnex — REST API** (default if no file source is configured):
+
+Authentication — use **one** of:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `SYNNEX_API_KEY` | Yes* | TD Synnex API key |
-| `SYNNEX_BASE_URL` | No | Default `https://api.synnex.com` |
-| `SYNNEX_PRODUCTS_PATH` | No | Products path (default `/v1/products`) |
-| `SYNNEX_PRICE_AVAILABILITY_PATH` | No | Price/availability path |
+| `SYNNEX_OAUTH_CLIENT_ID` + `SYNNEX_OAUTH_CLIENT_SECRET` | Recommended | Partner API **OAuth2 client credentials** from TD Synnex (same app as OpenAPI “Authentication”). The Lambda calls `SYNNEX_TOKEN_URL`, caches the bearer, and refreshes before expiry — **you do not log in by hand**. |
+| `SYNNEX_TOKEN_URL` | No | Default `https://sso.us.tdsynnex.com/oauth2/v1/token`. For Canada SSO use your spec’s CA host (e.g. `https://sso.ca.tdsynnex.com/oauth2/v1/token`). |
+| `SYNNEX_OAUTH_SCOPE` | No | Set only if your token endpoint requires a `scope` field. |
+| `SYNNEX_API_KEY` | Legacy | Static key mode: same value as Bearer + `x-api-key`. Omit when using OAuth. |
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SYNNEX_BASE_URL` | No | API host (e.g. `https://api.us.tdsynnex.com` production US; default `https://api.synnex.com`) |
+| `SYNNEX_PRODUCTS_PATH` | Often yes | **GET** path from your OpenAPI, including leading `/` (e.g. `/api/v1/...`). `https://api.us.tdsynnex.com` does **not** expose `/v1/products`. The Partner portal “Endpoints” page often lists **orders/invoices only** — catalog feeds live under another operation in the same OpenAPI JSON. |
+| `SYNNEX_PRICE_AVAILABILITY_PATH` | Often yes | **POST** path for price/availability from OpenAPI (default `/v1/price-availability` is often wrong on US Partner API). |
+
+**Synnex — real-time XML P&A** (used when **all** of the following are set; **takes priority** over flat file and REST):
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SYNNEX_XML_URL` | Yes | Default in SAM: `https://ec.us.tdsynnex.com/SynnexXML/PriceAvailability`. For **availability only**, use `https://ec.us.tdsynnex.com/SynnexXML/Availability`. |
+| `SYNNEX_XML_CUSTOMER_NO` | Yes | Customer number from TD Synnex |
+| `SYNNEX_XML_USERNAME` | Yes | XML service username |
+| `SYNNEX_XML_PASSWORD` | Yes | XML service password |
+| `SYNNEX_XML_REQUEST_VERSION` | No | e.g. `2.3` on `<priceRequest>` for mfg P/N style calls (per TD Synnex spec) |
+| `SYNNEX_XML_LIST_BY` | No | `synnexSKU` (default) or `mfgPN` — which tag is used inside each `<skuList>` |
+| `SYNNEX_XML_SKU_CHUNK_SIZE` | No | SKUs per request (default `40`, max `200`) |
+| `SYNNEX_XML_SYNC_PRICES` | No | `true` (default): update Shopify variant prices from XML; `false`: inventory only |
+| `SYNNEX_XML_MSRP_AS_COMPARE_AT` | No | `true`: map MSRP/list tags to compare-at price when present |
+
+Request/response tag names may need to match your official XML spec (`src/synnex/xmlClient.js`). Contact **XMLGROUP@TDSYNNEX.COM** for the exact schema if responses are empty or errors occur.
 
 **Synnex — Flat file** (set **either** S3 or URL):
 
@@ -46,12 +72,12 @@ AWS Lambda application that syncs **product data** and **inventory** from **TD S
 | `SYNNEX_FILE_S3_BUCKET` | S3 bucket containing the file (use with `SYNNEX_FILE_S3_KEY`) |
 | `SYNNEX_FILE_S3_KEY` | S3 object key |
 | `SYNNEX_FILE_URL` | Or: URL to fetch the file (e.g. pre-signed or internal) |
-| `SYNNEX_FILE_FORMAT` | Optional: `xml` or `flat`. Auto-detected if unset (XML when content looks like XML) |
+| `SYNNEX_FILE_FORMAT` | Do not set to `xml` — XML content is rejected. Use delimited flat files only. |
 | `SYNNEX_FILE_DELIMITER` | Optional; default `,` (flat only) |
 | `SYNNEX_FILE_HAS_HEADER` | Optional; default `true` |
 | `SYNNEX_COL_PART_NUMBER`, `SYNNEX_COL_QTY`, `SYNNEX_COL_PRICE`, etc. | Column names if different from default |
 
-**Synnex — SFTP** (ZIP/XML file from TD Synnex SFTP; checked before S3/URL):
+**Synnex — SFTP** (ZIP or flat file; checked before S3/URL):
 
 | Variable | Description |
 |----------|-------------|
@@ -62,7 +88,7 @@ AWS Lambda application that syncs **product data** and **inventory** from **TD S
 | `SYNNEX_SFTP_PASSWORD` | SFTP password (prefer `SYNNEX_SFTP_SECRET_ARN` in production) |
 | `SYNNEX_SFTP_SECRET_ARN` | Optional; Secrets Manager secret ARN with a `password` key (overrides `SYNNEX_SFTP_PASSWORD`) |
 
-When the remote path is a `.zip`, the Lambda downloads it, extracts the first `.xml` entry in memory, and parses it with the same XML parser used for S3/URL files.
+When the remote path is a `.zip`, the Lambda prefers `.csv`, then `.txt`, then a non-`.xml` entry (flat/CSV content only).
 
 **Sync allowlist (only sync a subset of products):**
 
@@ -73,7 +99,7 @@ If you have a large catalog (e.g. millions of products) and only want a subset o
 | `SYNNEX_SYNC_ALLOWLIST` | Comma-separated part numbers (SKUs). Only these are synced. |
 | `SYNNEX_SYNC_ALLOWLIST_S3_BUCKET` + `SYNNEX_SYNC_ALLOWLIST_S3_KEY` | S3 file with one part number per line. Use for large lists (e.g. 100k+ SKUs). |
 
-When set, the sync **only** creates/updates products whose part number is in the allowlist. The XML is filtered during parse so memory stays manageable. Leave both unset to sync all products from the source.
+When set, the sync **only** creates/updates products whose part number is in the allowlist. Leave both unset to sync all products from the source.
 
 **Filter by brand or category (only sync certain items):**
 
@@ -82,20 +108,7 @@ When set, the sync **only** creates/updates products whose part number is in the
 | `SYNNEX_SYNC_FILTER_BRANDS` | Comma-separated brand/manufacturer names. Only products whose manufacturer (or brand) matches one of these are synced. Case-insensitive. |
 | `SYNNEX_SYNC_FILTER_CATEGORIES` | Comma-separated category names. Only products whose category matches one of these are synced. Case-insensitive. |
 
-If both are set, a product must match **both** a brand and a category to be synced. The XML (or flat file) must include manufacturer and category fields; tag names are configurable with `SYNNEX_XML_MANUFACTURER_TAG` and `SYNNEX_XML_CATEGORY_TAG` (defaults: `manufacturer,brand,vendor,Mfr` and `category,cat,productCategory`). Use this when you only want particular brands or categories (e.g. "HP,Dell" or "Laptops,Monitors") instead of the full catalog.
-
-**Synnex — Real-Time XML** (Price & Availability):
-
-| Variable | Description |
-|----------|-------------|
-| `SYNNEX_XML_URL` | XML service endpoint URL (from TD Synnex XML spec) |
-| `SYNNEX_XML_CUSTOMER_NO` | Customer number |
-| `SYNNEX_XML_USERNAME` | Username |
-| `SYNNEX_XML_PASSWORD` | Password |
-
-When XML is configured, the sync uses **inventory-only** mode: it loads all product variant SKUs from Shopify, queries Synnex XML for price/availability for those SKUs, then updates Shopify inventory. No new products are created from XML.
-
-*Not required when using only file or XML source.
+If both are set, a product must match **both** a brand and a category to be synced. Items must expose `manufacturer`/`brand` and `category` (REST and flat-file rows supply these columns).
 
 **Other:** `SHOPIFY_API_VERSION` (default `2025-01`).
 
@@ -111,9 +124,14 @@ Create a `.env` (or set env vars) and run the handler locally:
 ```bash
 # Optional: use dotenv or export vars
 export SHOPIFY_STORE=your-store
-export SHOPIFY_ACCESS_TOKEN=shpat_xxx
+export SHOPIFY_CLIENT_ID=your-client-id
+export SHOPIFY_CLIENT_SECRET=your-client-secret
 export SHOPIFY_LOCATION_ID="gid://shopify/Location/123456"
-export SYNNEX_API_KEY=your-synnex-key
+# TD Synnex Partner API (OAuth — recommended)
+export SYNNEX_OAUTH_CLIENT_ID=...
+export SYNNEX_OAUTH_CLIENT_SECRET=...
+# export SYNNEX_TOKEN_URL=https://sso.us.tdsynnex.com/oauth2/v1/token
+export SYNNEX_BASE_URL=https://api.us.tdsynnex.com
 
 # Invoke with SAM (uses events/sync.json)
 npm run invoke
@@ -142,8 +160,24 @@ sam local invoke SynnexShopifySyncFunction --event events/custom.json
 
    You will be prompted for:
 
-   - `ShopifyStore`, `ShopifyAccessToken`, `ShopifyLocationId`
-   - `SynnexApiKey`, optionally `SynnexBaseUrl`
+   - `ShopifyStore`, `ShopifyClientId`, `ShopifyClientSecret`, `ShopifyLocationId`
+   - `SynnexOAuthClientId`, `SynnexOAuthClientSecret` (optional `SynnexTokenUrl`, `SynnexBaseUrl`, paths) — or legacy `SynnexApiKey`
+   - For **XML P&A**: `SynnexXmlUrl` (defaults to PriceAvailability US), `SynnexXmlCustomerNo`, `SynnexXmlUsername`, `SynnexXmlPassword`, optional chunk/version/price flags
+
+   Example (Partner API OAuth):
+
+   ```bash
+   sam deploy --parameter-overrides \
+     ShopifyStore=your-store \
+     ShopifyClientId=your-client-id \
+     ShopifyClientSecret=your-client-secret \
+     ShopifyLocationId="gid://shopify/Location/123456" \
+     SynnexOAuthClientId=your-synnex-oauth-client-id \
+     SynnexOAuthClientSecret=your-synnex-oauth-secret \
+     SynnexBaseUrl=https://api.us.tdsynnex.com \
+     SynnexProductsPath=/api/v1/YOUR_CATALOG_PATH_FROM_OPENAPI \
+     SynnexPriceAvailabilityPath=/api/v1/YOUR_PRICE_PATH_FROM_OPENAPI
+   ```
 
 3. After deploy, the function runs on the **schedule** defined in `template.yaml` (default: `rate(1 hour)`). Change or disable it under `Events.ScheduleSync` if needed.
 
@@ -184,29 +218,13 @@ synnex-shopify-sync/
 
 ## TD Synnex data sources
 
-- **REST API**: Use when Synnex provides product and price/availability REST endpoints. Set `SYNNEX_API_KEY` (and optional paths).
-- **Flat file**: Use when Synnex provides EDI/flat files (e.g. *Price & Availability Flat File*, *Hourly Inventory Status*). Put the file in S3 or behind a URL and set `SYNNEX_FILE_S3_BUCKET`/`SYNNEX_FILE_S3_KEY` or `SYNNEX_FILE_URL`. Match column names to the spec (env vars or edit `src/synnex/fileSource.js`).
-- **XML file**: Use when you **download XML files** from the TD Synnex site (e.g. price/availability or catalog export). Set `SYNNEX_FILE_FORMAT=xml` (or rely on auto-detect) and point `SYNNEX_FILE_URL` or S3 at the file. The parser looks for `<item>` or `<product>` blocks and tags like `synnexSKU`, `qtyAvailable`, `unitPrice`; override with `SYNNEX_XML_PART_TAG`, `SYNNEX_XML_QTY_TAG`, `SYNNEX_XML_PRICE_TAG` if your XML uses different names.
-- **Real-Time XML**: Use the *XML Real Time Price & Availability Query Tool*. Download the spec from the TD Synnex XML services page; set `SYNNEX_XML_URL`, `SYNNEX_XML_CUSTOMER_NO`, `SYNNEX_XML_USERNAME`, `SYNNEX_XML_PASSWORD`. The sync uses your **Shopify product SKUs** as the part-number list and updates inventory only. Request/response tag names in `src/synnex/xmlClient.js` may need to match the official spec (contact XMLGROUP@TDSYNNEX.COM if needed).
-
-### Using downloaded XML files
-
-1. Download the XML from the TD Synnex portal (e.g. price/availability or catalog).
-2. Put the file where the Lambda can read it:
-   - **S3**: Upload to a bucket and set `SYNNEX_FILE_S3_BUCKET` and `SYNNEX_FILE_S3_KEY` (e.g. `synnex-files/pa-2025-03-11.xml`). For “latest” file you can use a fixed key and overwrite it each time you upload.
-   - **URL**: Host the file behind a URL (e.g. internal server or pre-signed S3 URL) and set `SYNNEX_FILE_URL`.
-3. Set `SYNNEX_FILE_FORMAT=xml` (optional; XML is auto-detected if the content starts with `<?xml` or `<`).
-4. Run the sync (schedule or manual). The Lambda reads the file and pushes products/inventory to Shopify.
+- **Real-time XML P&A**: When fully configured, this source runs **before** flat file or REST. Production US endpoints above (`PriceAvailability` vs `Availability`). Sync loads **all variant SKUs from Shopify**, queries Synnex in chunks, then updates inventory (and optionally prices).
+- **Flat file**: Delimited CSV only (not bulk XML files). Used when XML is **not** configured.
+- **REST API**: Partner JSON when neither XML nor a file source is configured; requires correct `SYNNEX_PRODUCTS_PATH` / `SYNNEX_PRICE_AVAILABILITY_PATH` from OpenAPI when available.
 
 ### Keeping file data from going stale
 
-Downloaded files are only as fresh as the last time you updated them. To keep Shopify in sync:
-
-- **Option A — Upload on a schedule**: Use a **scheduled job** (e.g. cron on your machine, or a second Lambda + EventBridge) that logs into the TD Synnex site (or pulls from a Synnex-provided URL), downloads the XML, and uploads it to S3 (same key every time). The existing **hourly** Lambda run will then always read the latest file. So “freshness” = how often that upload runs (e.g. every 4 hours).
-- **Option B — Sync when a new file lands**: Trigger the sync Lambda when a **new file** appears in S3 (S3 event → Lambda). You (or a script) upload the downloaded XML to S3; the Lambda runs once per upload and syncs that file. Data is as fresh as your last upload.
-- **Option C — More frequent schedule**: If you upload the file daily, set the Lambda schedule to `rate(1 day)` so it runs after the new file is in place. If you upload every few hours, run the Lambda at the same interval.
-
-Using **Option A or B** avoids manual steps and keeps data from going stale.
+- Upload new flat files on a schedule to a fixed S3 key, or trigger the Lambda on S3 `ObjectCreated`, or align EventBridge schedule with your file drop cadence.
 
 ## Shopify API notes
 

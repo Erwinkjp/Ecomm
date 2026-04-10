@@ -1,10 +1,8 @@
 /**
- * TD Synnex file-based data source (flat files or XML for price/catalog/availability).
+ * TD Synnex file-based data source (flat / delimited files only).
  * Sources (checked in order): SFTP, S3, or SYNNEX_FILE_URL.
- * For XML: set SYNNEX_FILE_FORMAT=xml or leave auto (detected when content starts with <).
  */
 const { parseFlatFile } = require('./flatFileParser');
-const { parseSynnexXmlFile } = require('./xmlFileParser');
 const { getFileContentFromSftp, isSftpConfigured } = require('./sftpSource');
 
 async function loadFileContent() {
@@ -56,11 +54,19 @@ function parseSynnexFlatFile(content) {
     .filter((p) => p.partNumber);
 }
 
+function assertNotXmlContent(content) {
+  const format = (process.env.SYNNEX_FILE_FORMAT || '').toLowerCase();
+  const trimmed = content.trimStart();
+  if (format === 'xml' || trimmed.startsWith('<?xml') || trimmed.startsWith('<')) {
+    throw new Error(
+      'XML files are not supported. Use a delimited flat file (CSV) or the REST API (SYNNEX_BASE_URL).'
+    );
+  }
+}
+
 async function getProductsWithAvailabilityFromFile(allowlist = null) {
   const content = await loadFileContent();
-  const format = (process.env.SYNNEX_FILE_FORMAT || '').toLowerCase();
-  const isXml = format === 'xml' || content.trimStart().startsWith('<?xml') || content.trimStart().startsWith('<');
-  if (isXml) return parseSynnexXmlFile(content, { allowlist });
+  assertNotXmlContent(content);
   const flat = parseSynnexFlatFile(content);
   if (allowlist) return flat.filter((p) => allowlist.has(p.partNumber));
   return flat;

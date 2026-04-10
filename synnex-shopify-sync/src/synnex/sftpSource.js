@@ -1,5 +1,5 @@
 /**
- * TD Synnex SFTP source: connect to SFTP, download file (ZIP or XML), return content.
+ * TD Synnex SFTP source: connect to SFTP, download file (ZIP or flat text), return content.
  * Set SYNNEX_SFTP_HOST, SYNNEX_SFTP_USERNAME, SYNNEX_SFTP_REMOTE_PATH, and either
  * SYNNEX_SFTP_PASSWORD or SYNNEX_SFTP_SECRET_ARN (Secrets Manager secret with "password" key).
  */
@@ -21,7 +21,7 @@ async function getSftpPassword() {
 
 /**
  * Download remote file via SFTP and return its content as a string.
- * If the remote path is a .zip, extracts the first .xml entry and returns its UTF-8 content.
+ * If the remote path is a .zip, extracts a data file (CSV preferred, then TXT; see code order).
  */
 async function getFileContentFromSftp() {
   const SftpClient = require('ssh2-sftp-client');
@@ -65,11 +65,12 @@ async function getFileContentFromSftp() {
         throw new Error(`ZIP entry "${exactEntry}" not found. ZIP contains: ${list}`);
       }
 
-      // Otherwise: first .xml, then .csv, then .txt, then any first file
+      // Otherwise: CSV, then TXT, then first non-.xml file, else first entry (flat/CSV only downstream)
+      const lower = (n) => n.toLowerCase();
       const dataEntry =
-        entries.find((e) => e.entryName.toLowerCase().endsWith('.xml')) ||
-        entries.find((e) => e.entryName.toLowerCase().endsWith('.csv')) ||
-        entries.find((e) => e.entryName.toLowerCase().endsWith('.txt')) ||
+        entries.find((e) => lower(e.entryName).endsWith('.csv')) ||
+        entries.find((e) => lower(e.entryName).endsWith('.txt')) ||
+        entries.find((e) => !lower(e.entryName).endsWith('.xml')) ||
         entries[0];
       if (!dataEntry) throw new Error(`No data file found in ZIP. ZIP contains: ${list}`);
       return dataEntry.getData().toString('utf8');

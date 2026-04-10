@@ -1,8 +1,18 @@
 /**
  * Shopify Admin GraphQL client (productSet + inventorySetQuantities).
- * Requires SHOPIFY_STORE, SHOPIFY_ACCESS_TOKEN, and optionally SHOPIFY_LOCATION_ID.
+ *
+ * Auth: SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET (Dev Dashboard; client_credentials grant).
+ * Session is cached and refreshed before expiry (~24h).
+ *
+ * Also: SHOPIFY_STORE, SHOPIFY_LOCATION_ID (for inventory).
  */
+const { URLSearchParams } = require('url');
+
 const DEFAULT_API_VERSION = '2025-01';
+const SESSION_REFRESH_BUFFER_MS = 60_000;
+
+/** @type {{ bearer: string | null; expiresAtMs: number }} */
+let shopifySession = { bearer: null, expiresAtMs: 0 };
 
 function getStore() {
   const store = process.env.SHOPIFY_STORE;
@@ -10,10 +20,64 @@ function getStore() {
   return store.replace(/\.myshopify\.com$/, '');
 }
 
-function getAccessToken() {
-  const token = process.env.SHOPIFY_ACCESS_TOKEN;
-  if (!token) throw new Error('SHOPIFY_ACCESS_TOKEN is required');
-  return token;
+async function exchangeClientCredentials(store) {
+  const clientId = process.env.SHOPIFY_CLIENT_ID?.trim();
+  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) {
+    throw new Error('SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET are required (Dev Dashboard → Settings → Credentials)');
+  }
+
+  const res = await fetch(`https://${store}.myshopify.com/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`Shopify OAuth credential exchange failed ${res.status}: ${text}`);
+  }
+
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Shopify OAuth invalid JSON: ${text}`);
+  }
+  const bearer = json.access_token;
+  if (!bearer) {
+    throw new Error(`Shopify OAuth response missing credential: ${text}`);
+  }
+
+  const expiresInSec = Number(json.expires_in) || 86399;
+  return { bearer, expiresInSec };
+}
+
+/**
+ * @param {{ bearer?: string }} config
+ */
+async function getShopifyBearer(config) {
+  if (config.bearer) return config.bearer;
+
+  const store = getStore();
+  const now = Date.now();
+  if (
+    shopifySession.bearer &&
+    now < shopifySession.expiresAtMs - SESSION_REFRESH_BUFFER_MS
+  ) {
+    return shopifySession.bearer;
+  }
+
+  const { bearer, expiresInSec } = await exchangeClientCredentials(store);
+  shopifySession = {
+    bearer,
+    expiresAtMs: now + expiresInSec * 1000,
+  };
+  return bearer;
 }
 
 function getLocationId() {
@@ -24,7 +88,7 @@ function getLocationId() {
 
 async function graphql(query, variables, config = {}) {
   const store = config.store ?? getStore();
-  const accessToken = config.accessToken ?? getAccessToken();
+  const bearer = await getShopifyBearer(config);
   const apiVersion = config.apiVersion ?? process.env.SHOPIFY_API_VERSION ?? DEFAULT_API_VERSION;
   const url = `https://${store}.myshopify.com/admin/api/${apiVersion}/graphql.json`;
 
@@ -32,7 +96,8 @@ async function graphql(query, variables, config = {}) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': accessToken,
+      // Shopify Admin API requires this header name for the OAuth-issued value
+      'X-Shopify-Access-Token': bearer,
     },
     body: JSON.stringify({ query, variables }),
   });
@@ -188,8 +253,7 @@ async function getProductBySku(sku, config = {}) {
 }
 
 /**
- * List SKUs and inventory item IDs for all product variants (for XML P&A sync).
- * Returns array of { sku, inventoryItemId }.
+ * List SKUs with variant and inventory item IDs (XML P&A: match Synnex SKUs to Shopify variants).
  */
 async function getVariantSkusAndInventoryItemIds(config = {}) {
   const out = [];
@@ -219,9 +283,6 @@ async function getVariantSkusAndInventoryItemIds(config = {}) {
   return out;
 }
 
-/**
- * Update a variant's selling price and optional compare-at price.
- */
 async function updateVariantPricing({ variantId, price, compareAtPrice }, config = {}) {
   if (!variantId) throw new Error('variantId is required');
   if (!Number.isFinite(Number(price))) throw new Error('price must be a finite number');

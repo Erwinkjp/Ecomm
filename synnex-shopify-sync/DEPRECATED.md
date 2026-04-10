@@ -1,6 +1,6 @@
 # Legacy Node sync (deprecation)
 
-This package (`synnex-shopify-sync`) is the original **Node.js** scheduled Lambda that syncs TD Synnex XML P&A to Shopify.
+This package (`synnex-shopify-sync`) is the original **Node.js** scheduled Lambda that syncs TD Synnex catalog/availability to Shopify (REST or flat file).
 
 **Replacement:** use the Python SAM application in **`../synnex-bridge-py/`**, which adds:
 

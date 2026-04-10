@@ -6,10 +6,13 @@ Parameters:
   ShopifyStore:
     Type: String
     Description: Shopify store hostname (e.g. your-store from your-store.myshopify.com)
-  ShopifyAccessToken:
+  ShopifyClientId:
+    Type: String
+    Description: Dev Dashboard app Client ID (Settings → Credentials)
+  ShopifyClientSecret:
     Type: String
     NoEcho: true
-    Description: Shopify Admin API access token (write_products, write_inventory)
+    Description: Dev Dashboard app Client secret (Settings → Credentials)
   ShopifyLocationId:
     Type: String
     Description: Shopify location GID (e.g. gid://shopify/Location/123456)
@@ -17,15 +20,36 @@ Parameters:
     Type: String
     NoEcho: true
     Default: ''
-    Description: TD Synnex API key (optional when using Real-Time XML mode only)
+    Description: Legacy static key (optional).
+  SynnexOAuthClientId:
+    Type: String
+    Default: ''
+    Description: TD Synnex Partner API OAuth client ID
+  SynnexOAuthClientSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: TD Synnex Partner API OAuth client secret
+  SynnexTokenUrl:
+    Type: String
+    Default: 'https://sso.us.tdsynnex.com/oauth2/v1/token'
+    Description: SSO token endpoint
   SynnexBaseUrl:
     Type: String
     Default: 'https://api.synnex.com'
-    Description: TD Synnex API base URL (override for sandbox)
-  SynnexXmlUrl:
+    Description: TD Synnex API base URL
+  SynnexProductsPath:
     Type: String
     Default: ''
-    Description: TD Synnex XML endpoint (e.g. https://ec.us.tdsynnex.com/SynnexXML/PriceAvailability)
+    Description: REST GET path for product/catalog feed
+  SynnexPriceAvailabilityPath:
+    Type: String
+    Default: ''
+    Description: REST POST path for price & availability
+  SynnexXmlUrl:
+    Type: String
+    Default: 'https://ec.us.tdsynnex.com/SynnexXML/PriceAvailability'
+    Description: Real-time XML P&A POST URL
   SynnexXmlCustomerNo:
     Type: String
     Default: ''
@@ -41,26 +65,66 @@ Parameters:
     Description: TD Synnex XML password
   SynnexXmlRequestVersion:
     Type: String
-    Default: ''
-    Description: Optional XML request version (e.g. 2.8 for MSRP/weight)
+    Default: '2.8'
+    Description: XML request version (2.8 gets MSRP + weight)
   SynnexXmlSkuChunkSize:
     Type: String
     Default: '40'
-    Description: SKUs per XML request chunk (default 40)
+    Description: SKUs per XML request (max 200)
   SynnexXmlSyncPrices:
     Type: String
     Default: 'true'
     AllowedValues:
       - 'true'
       - 'false'
-    Description: Set false to sync inventory only (no Shopify price updates)
+    Description: Push prices to Shopify via XML P&A
   SynnexXmlMsrpAsCompareAt:
     Type: String
-    Default: 'false'
+    Default: 'true'
     AllowedValues:
       - 'true'
       - 'false'
-    Description: Use XML MSRP as compare-at price when available
+    Description: Map XML MSRP to Shopify compare-at price
+  SynnexSftpHost:
+    Type: String
+    Default: 'sftp.us.tdsynnex.com'
+    Description: TD Synnex SFTP host
+  SynnexSftpPort:
+    Type: String
+    Default: '22'
+    Description: SFTP port
+  SynnexSftpUsername:
+    Type: String
+    Default: ''
+    Description: SFTP username
+  SynnexSftpRemotePath:
+    Type: String
+    Default: ''
+    Description: Remote path to the pricing zip or flat file
+  SynnexSftpPassword:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: SFTP password
+  SynnexSftpSecretArn:
+    Type: String
+    Default: ''
+    Description: Secrets Manager ARN for SFTP password (overrides SynnexSftpPassword)
+  PriceMarkupPercent:
+    Type: String
+    Default: '15'
+    Description: Markup percentage applied over TD Synnex cost price (e.g. 15 = 15%)
+  SynnexSyncLimit:
+    Type: String
+    Default: ''
+    Description: Max products to sync per run. Leave empty for all. Set to 5 for testing.
+  StateBucket:
+    Type: String
+    Default: ''
+    Description: S3 bucket name for storing sync state (SKU → Shopify ID mapping)
+
+Conditions:
+  HasStateBucket: !Not [!Equals [!Ref StateBucket, '']]
 
 Globals:
   Function:
@@ -69,6 +133,12 @@ Globals:
     Runtime: nodejs20.x
 
 Resources:
+  SyncHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      Description: Public HTTPS URL for TD Synnex callbacks or manual sync triggers
+
   SynnexShopifySyncFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -78,10 +148,16 @@ Resources:
       Environment:
         Variables:
           SHOPIFY_STORE: !Ref ShopifyStore
-          SHOPIFY_ACCESS_TOKEN: !Ref ShopifyAccessToken
+          SHOPIFY_CLIENT_ID: !Ref ShopifyClientId
+          SHOPIFY_CLIENT_SECRET: !Ref ShopifyClientSecret
           SHOPIFY_LOCATION_ID: !Ref ShopifyLocationId
           SYNNEX_API_KEY: !Ref SynnexApiKey
+          SYNNEX_OAUTH_CLIENT_ID: !Ref SynnexOAuthClientId
+          SYNNEX_OAUTH_CLIENT_SECRET: !Ref SynnexOAuthClientSecret
+          SYNNEX_TOKEN_URL: !Ref SynnexTokenUrl
           SYNNEX_BASE_URL: !Ref SynnexBaseUrl
+          SYNNEX_PRODUCTS_PATH: !Ref SynnexProductsPath
+          SYNNEX_PRICE_AVAILABILITY_PATH: !Ref SynnexPriceAvailabilityPath
           SYNNEX_XML_URL: !Ref SynnexXmlUrl
           SYNNEX_XML_CUSTOMER_NO: !Ref SynnexXmlCustomerNo
           SYNNEX_XML_USERNAME: !Ref SynnexXmlUsername
@@ -90,13 +166,55 @@ Resources:
           SYNNEX_XML_SKU_CHUNK_SIZE: !Ref SynnexXmlSkuChunkSize
           SYNNEX_XML_SYNC_PRICES: !Ref SynnexXmlSyncPrices
           SYNNEX_XML_MSRP_AS_COMPARE_AT: !Ref SynnexXmlMsrpAsCompareAt
+          SYNNEX_SFTP_HOST: !Ref SynnexSftpHost
+          SYNNEX_SFTP_PORT: !Ref SynnexSftpPort
+          SYNNEX_SFTP_USERNAME: !Ref SynnexSftpUsername
+          SYNNEX_SFTP_REMOTE_PATH: !Ref SynnexSftpRemotePath
+          SYNNEX_SFTP_PASSWORD: !Ref SynnexSftpPassword
+          SYNNEX_SFTP_SECRET_ARN: !Ref SynnexSftpSecretArn
+          PRICE_MARKUP_PERCENT: !Ref PriceMarkupPercent
+          SYNNEX_SYNC_LIMIT: !Ref SynnexSyncLimit
+          STATE_BUCKET: !Ref StateBucket
       Events:
         ScheduleSync:
           Type: Schedule
           Properties:
             Schedule: rate(1 hour)
             Description: Run Synnex to Shopify sync every hour
-            Enabled: true
+            Enabled: false
+        SyncApiHealth:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncHttpApi
+            Path: /health
+            Method: GET
+        SyncApiPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncHttpApi
+            Path: /sync
+            Method: POST
+
+  SyncStateBucketPolicy:
+    Type: AWS::IAM::Policy
+    Condition: HasStateBucket
+    Properties:
+      PolicyName: !Sub '${AWS::StackName}-sync-state-s3'
+      Roles:
+        - !Ref SynnexShopifySyncFunctionRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: StateBucketCrud
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:ListBucket
+            Resource:
+              - !Sub 'arn:aws:s3:::${StateBucket}'
+              - !Sub 'arn:aws:s3:::${StateBucket}/*'
 
 Outputs:
   SynnexShopifySyncFunctionArn:
@@ -105,3 +223,9 @@ Outputs:
   SynnexShopifySyncFunctionName:
     Description: Name of the sync Lambda
     Value: !Ref SynnexShopifySyncFunction
+  SyncHttpApiUrl:
+    Description: Base URL of the HTTP API
+    Value: !Sub 'https://${SyncHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  SyncHttpApiHealthUrl:
+    Description: GET this URL for a health check
+    Value: !Sub 'https://${SyncHttpApi}.execute-api.${AWS::Region}.amazonaws.com/health'

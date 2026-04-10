@@ -1,6 +1,6 @@
 /**
  * Sync orchestration: pull from TD Synnex, map to Shopify, push products and inventory.
- * Supports: REST API, flat file, or Real-Time XML (Price & Availability).
+ * Sources (order): real-time XML P&A (when fully configured), then flat file (SFTP/S3/URL), then REST API.
  */
 const { getProductsWithAvailability } = require('../synnex/client');
 const { getProductsWithAvailabilityFromFile, isFileSourceConfigured } = require('../synnex/fileSource');
@@ -16,11 +16,25 @@ const {
 const { synnexToShopifyProduct } = require('./transform');
 const { filterByBrandAndCategory } = require('./filterByBrandCategory');
 
+function getEnvSyncLimit() {
+  const raw = process.env.SYNNEX_SYNC_LIMIT?.trim();
+  if (!raw) return undefined;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/** Apply PRICE_MARKUP_PERCENT over Synnex unit price (e.g. 15 => +15%). Empty or invalid = no change. */
+function applyPriceMarkup(basePrice) {
+  const raw = process.env.PRICE_MARKUP_PERCENT?.trim();
+  if (!raw) return Number(basePrice);
+  const pct = parseFloat(raw);
+  if (!Number.isFinite(pct) || pct < 0) return Number(basePrice);
+  const out = Number(basePrice) * (1 + pct / 100);
+  return Math.round(out * 100) / 100;
+}
+
 async function fetchFromSynnex() {
   const allowlist = await loadAllowlist();
-  if (isFileSourceConfigured()) {
-    return getProductsWithAvailabilityFromFile(allowlist);
-  }
   if (isXmlConfigured()) {
     const variants = await getVariantSkusAndInventoryItemIds();
     const partNumbers = [...new Set(variants.map((v) => v.sku).filter(Boolean))];
@@ -35,6 +49,9 @@ async function fetchFromSynnex() {
         _variantId: row?.variantId,
       };
     });
+  }
+  if (isFileSourceConfigured()) {
+    return getProductsWithAvailabilityFromFile(allowlist);
   }
   return getProductsWithAvailability();
 }
@@ -67,7 +84,8 @@ async function runSync(options = {}) {
 
   items = filterByBrandAndCategory(items);
   result.productsFetched = items.length;
-  const toProcess = limit != null ? items.slice(0, limit) : items;
+  const effectiveLimit = limit != null ? limit : getEnvSyncLimit();
+  const toProcess = effectiveLimit != null ? items.slice(0, effectiveLimit) : items;
 
   const inventoryQuantities = [];
 
@@ -101,7 +119,7 @@ async function runSync(options = {}) {
         try {
           await updateVariantPricing({
             variantId,
-            price: Number(item.price),
+            price: applyPriceMarkup(item.price),
             compareAtPrice:
               msrpAsCompareAt && item.msrp != null && Number.isFinite(Number(item.msrp))
                 ? Number(item.msrp)

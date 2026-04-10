@@ -10,7 +10,27 @@ function isSyncEvent(body) {
   return body !== null && typeof body === 'object';
 }
 
+function isHttpApiEvent(event) {
+  return Boolean(event?.requestContext?.http);
+}
+
+function httpApiHealthResponse() {
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'ok', service: 'synnex-shopify-sync' }),
+  };
+}
+
 async function handler(event, _context) {
+  if (isHttpApiEvent(event)) {
+    const method = event.requestContext.http.method;
+    const path = event.rawPath || event.requestContext.http.path || '';
+    if (method === 'GET' && (path === '/health' || path.endsWith('/health'))) {
+      return httpApiHealthResponse();
+    }
+  }
+
   // Special action: only list files inside the SFTP zip (no sync). Use test event {"action": "listZip"}.
   const body = event && typeof event === 'object' && event.body;
   const parsed = typeof body === 'string' ? (() => { try { return JSON.parse(body); } catch (_) { return event; } })() : event;
