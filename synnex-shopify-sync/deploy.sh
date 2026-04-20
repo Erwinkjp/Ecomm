@@ -18,12 +18,13 @@ cd "$(dirname "$0")"
 PARAMS_STRING="$(python3 - <<'PYEOF'
 import os, shlex
 
-def add(key, env, required=False):
+def add(key, env, required=False, always=False):
     val = os.environ.get(env, "").strip()
     if not val:
         if required:
             raise ValueError(f"Missing required env var: {env}")
-        return None
+        # always=True forces the empty value through so CloudFormation clears it
+        return f"{key}=''" if always else None
     # shlex.quote wraps the value in single quotes if it contains spaces/commas
     return f"{key}={shlex.quote(val)}"
 
@@ -45,7 +46,7 @@ parts = [
     add("SynnexSyncFilterBrands",     "SYNNEX_SYNC_FILTER_BRANDS"),
     add("SynnexSyncFilterCategories", "SYNNEX_SYNC_FILTER_CATEGORIES"),
     add("SynnexSyncAllowlist",    "SYNNEX_SYNC_ALLOWLIST"),
-    add("SynnexSyncLimit",        "SYNNEX_SYNC_LIMIT"),
+    add("SynnexSyncLimit",        "SYNNEX_SYNC_LIMIT",  always=True),
     add("IcecatUsername",         "ICECAT_USERNAME"),
 ]
 

@@ -15,9 +15,9 @@ const SET_QUANTITIES = `
 `;
 
 const UPDATE_VARIANT_PRICE = `
-  mutation productVariantUpdate($input: ProductVariantInput!) {
-    productVariantUpdate(input: $input) {
-      productVariant { id price compareAtPrice }
+  mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+    productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+      productVariants { id price compareAtPrice }
       userErrors { field message }
     }
   }
@@ -50,16 +50,16 @@ async function setInventoryQuantities(quantities) {
 /**
  * Update a variant's selling price and optional compare-at (MSRP) price.
  *
- * @param {{ variantId: string, price: number, compareAtPrice?: number }} options
+ * @param {{ productId: string, variantId: string, price: number, compareAtPrice?: number }} options
  */
-async function updateVariantPrice({ variantId, price, compareAtPrice }) {
-  const input = { id: variantId, price: String(price) };
+async function updateVariantPrice({ productId, variantId, price, compareAtPrice }) {
+  const variant = { id: variantId, price: String(price) };
   if (compareAtPrice != null) {
-    input.compareAtPrice = String(compareAtPrice);
+    variant.compareAtPrice = String(compareAtPrice);
   }
 
-  const data = await graphql(UPDATE_VARIANT_PRICE, { input });
-  const { userErrors } = data.productVariantUpdate;
+  const data = await graphql(UPDATE_VARIANT_PRICE, { productId, variants: [variant] });
+  const { userErrors } = data.productVariantsBulkUpdate;
   if (userErrors?.length) {
     throw new Error(userErrors.map(e => e.message).join('; '));
   }

@@ -60,6 +60,7 @@ const GET_VARIANTS_PAGE = `
       nodes {
         id
         sku
+        product { id }
         inventoryItem { id }
       }
     }
@@ -144,6 +145,7 @@ async function getAllVariants() {
         variants.push({
           variantId: v.id,
           sku: v.sku,
+          productId: v.product?.id,
           inventoryItemId: v.inventoryItem?.id,
         });
       }

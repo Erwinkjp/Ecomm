@@ -150,6 +150,7 @@ async function runPriceSync() {
     if (syncPrices && data.price != null && variant.variantId) {
       try {
         await updateVariantPrice({
+          productId: variant.productId,
           variantId: variant.variantId,
           price: applyMarkup(data.price),
           compareAtPrice: msrpAsCompareAt && data.msrp ? data.msrp : undefined,
