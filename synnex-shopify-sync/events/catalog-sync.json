@@ -1,0 +1,4 @@
+{
+  "job": "catalog-sync",
+  "_comment": "Test event for catalog-sync job. Run: npm run invoke:catalog"
+}

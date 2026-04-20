@@ -1,0 +1,4 @@
+{
+  "job": "price-sync",
+  "_comment": "Test event for price-sync job. Run: npm run invoke:price"
+}

@@ -1,55 +1,71 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Sync data and inventory from TD Synnex to Shopify (Lambda)
+Description: TD Synnex XML catalog and pricing → Shopify product sync (Lambda)
+
+# ─── Parameters ───────────────────────────────────────────────────────────────
 
 Parameters:
+
+  # Shopify (required)
   ShopifyStore:
     Type: String
-    Description: Shopify store hostname (e.g. your-store from your-store.myshopify.com)
+    Description: Store hostname — the part before .myshopify.com (e.g. my-store)
   ShopifyClientId:
     Type: String
     Description: Dev Dashboard app Client ID (Settings → Credentials)
   ShopifyClientSecret:
     Type: String
     NoEcho: true
-    Description: Dev Dashboard app Client secret (Settings → Credentials)
+    Description: Dev Dashboard app Client Secret
   ShopifyLocationId:
     Type: String
-    Description: Shopify location GID (e.g. gid://shopify/Location/123456)
-  SynnexApiKey:
+    Description: Inventory location GID — gid://shopify/Location/123456
+  ShopifyAccessToken:
     Type: String
     NoEcho: true
     Default: ''
-    Description: Legacy static key (optional).
-  SynnexOAuthClientId:
+    Description: Permanent access token from one-time OAuth setup (takes priority over client_credentials)
+  ShopifyApiVersion:
+    Type: String
+    Default: '2026-01'
+    Description: Shopify Admin API version
+
+  # TD Synnex SFTP (catalog-sync job)
+  SynnexSftpHost:
+    Type: String
+    Default: 'sftp.us.tdsynnex.com'
+    Description: TD Synnex SFTP hostname
+  SynnexSftpPort:
+    Type: String
+    Default: '22'
+    Description: SFTP port
+  SynnexSftpUsername:
     Type: String
     Default: ''
-    Description: TD Synnex Partner API OAuth client ID
-  SynnexOAuthClientSecret:
+    Description: SFTP username
+  SynnexSftpRemotePath:
+    Type: String
+    Default: ''
+    Description: Remote path to catalog XML or ZIP (e.g. /catalog.zip or /export.xml)
+  SynnexSftpPassword:
     Type: String
     NoEcho: true
     Default: ''
-    Description: TD Synnex Partner API OAuth client secret
-  SynnexTokenUrl:
-    Type: String
-    Default: 'https://sso.us.tdsynnex.com/oauth2/v1/token'
-    Description: SSO token endpoint
-  SynnexBaseUrl:
-    Type: String
-    Default: 'https://api.synnex.com'
-    Description: TD Synnex API base URL
-  SynnexProductsPath:
+    Description: SFTP password (prefer SynnexSftpSecretArn for production)
+  SynnexSftpSecretArn:
     Type: String
     Default: ''
-    Description: REST GET path for product/catalog feed
-  SynnexPriceAvailabilityPath:
+    Description: Secrets Manager ARN containing {"password":"..."} — takes priority over SynnexSftpPassword
+  SynnexSftpZipEntry:
     Type: String
     Default: ''
-    Description: REST POST path for price & availability
+    Description: Exact file name inside the ZIP to extract (leave blank for auto-detect)
+
+  # TD Synnex XML P&A (price-sync job)
   SynnexXmlUrl:
     Type: String
     Default: 'https://ec.us.tdsynnex.com/SynnexXML/PriceAvailability'
-    Description: Real-time XML P&A POST URL
+    Description: TD Synnex XML Price & Availability endpoint
   SynnexXmlCustomerNo:
     Type: String
     Default: ''
@@ -66,98 +82,220 @@ Parameters:
   SynnexXmlRequestVersion:
     Type: String
     Default: '2.8'
-    Description: XML request version (2.8 gets MSRP + weight)
+    Description: XML request version (2.8 returns MSRP and weight fields)
   SynnexXmlSkuChunkSize:
     Type: String
     Default: '40'
-    Description: SKUs per XML request (max 200)
+    Description: SKUs per XML P&A request batch (max 200)
   SynnexXmlSyncPrices:
     Type: String
     Default: 'true'
-    AllowedValues:
-      - 'true'
-      - 'false'
-    Description: Push prices to Shopify via XML P&A
+    AllowedValues: ['true', 'false']
+    Description: Push updated prices to Shopify during price-sync
   SynnexXmlMsrpAsCompareAt:
     Type: String
     Default: 'true'
-    AllowedValues:
-      - 'true'
-      - 'false'
-    Description: Map XML MSRP to Shopify compare-at price
-  SynnexSftpHost:
-    Type: String
-    Default: 'sftp.us.tdsynnex.com'
-    Description: TD Synnex SFTP host
-  SynnexSftpPort:
-    Type: String
-    Default: '22'
-    Description: SFTP port
-  SynnexSftpUsername:
+    AllowedValues: ['true', 'false']
+    Description: Show TD Synnex MSRP as the Shopify compare-at (crossed-out) price
+
+  # Filtering & pricing
+  SynnexSyncFilterBrands:
     Type: String
     Default: ''
-    Description: SFTP username
-  SynnexSftpRemotePath:
+    Description: Comma-separated manufacturer names to include (empty = all brands)
+  SynnexSyncFilterCategories:
     Type: String
     Default: ''
-    Description: Remote path to the pricing zip or flat file
-  SynnexSftpPassword:
-    Type: String
-    NoEcho: true
-    Default: ''
-    Description: SFTP password
-  SynnexSftpSecretArn:
+    Description: Comma-separated category names to include (empty = all categories)
+  SynnexSyncAllowlist:
     Type: String
     Default: ''
-    Description: Secrets Manager ARN for SFTP password (overrides SynnexSftpPassword)
-  PriceMarkupPercent:
-    Type: String
-    Default: '15'
-    Description: Markup percentage applied over TD Synnex cost price (e.g. 15 = 15%)
+    Description: Comma-separated SKU allowlist (empty = allowlist not applied)
   SynnexSyncLimit:
     Type: String
     Default: ''
-    Description: Max products to sync per run. Leave empty for all. Set to 5 for testing.
-  StateBucket:
+    Description: Max products to process per run — leave blank for all (set to 5 for testing)
+  IcecatUsername:
     Type: String
     Default: ''
-    Description: S3 bucket name for storing sync state (SKU → Shopify ID mapping)
+    Description: Icecat Open Catalog username for product descriptions and images
+
+  # Order fulfillment
+  SynnexOrderUrl:
+    Type: String
+    Default: 'https://ec.us.tdsynnex.com/SynnexXML/order'
+    Description: TD Synnex XML order submission endpoint (confirm with your TD Synnex rep)
+  SynnexOrderStatusUrl:
+    Type: String
+    Default: 'https://ec.us.tdsynnex.com/SynnexXML/orderstatus'
+    Description: TD Synnex XML order status endpoint
+  SynnexDefaultShipMethod:
+    Type: String
+    Default: 'FEDX_GRD'
+    Description: Default ship method code for TD Synnex orders (FEDX_GRD, UPS_GRD, etc.)
+  PriceMarkupPercent:
+    Type: String
+    Default: '15'
+    Description: Markup % over TD Synnex cost price (e.g. 15 = customer pays cost × 1.15)
+
+# ─── Conditions ───────────────────────────────────────────────────────────────
 
 Conditions:
-  HasStateBucket: !Not [!Equals [!Ref StateBucket, '']]
+  HasSftpSecretArn: !Not [!Equals [!Ref SynnexSftpSecretArn, '']]
+
+# ─── Globals ──────────────────────────────────────────────────────────────────
 
 Globals:
   Function:
-    Timeout: 300
-    MemorySize: 256
-    Runtime: nodejs20.x
+    Timeout: 600
+    MemorySize: 3008
+    Runtime: nodejs22.x
+    Architectures: [arm64]
+
+# ─── Resources ────────────────────────────────────────────────────────────────
 
 Resources:
-  SyncHttpApi:
+
+  # ── VPC + Static IP (NAT Gateway) ─────────────────────────────────────────
+  # Gives the Lambda a fixed public IP so TD Synnex can whitelist it.
+
+  SyncVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+
+  # Public subnet — where the NAT Gateway lives
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SyncVpc
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+
+  # Private subnet — where the Lambda runs (no direct internet exposure)
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SyncVpc
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref SyncVpc
+      InternetGatewayId: !Ref InternetGateway
+
+  # Static public IP — this is the IP you give to TD Synnex to whitelist
+  NatElasticIp:
+    Type: AWS::EC2::EIP
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  # NAT Gateway sits in the public subnet and routes Lambda traffic out
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatElasticIp.AllocationId
+      SubnetId: !Ref PublicSubnet
+
+  # Public subnet routes → Internet Gateway
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SyncVpc
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # Private subnet routes → NAT Gateway (outbound only, fixed IP)
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SyncVpc
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Security group: Lambda can initiate outbound connections, nothing can reach in
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Sync Lambda outbound only
+      VpcId: !Ref SyncVpc
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  # DynamoDB Gateway endpoint — free, keeps DynamoDB traffic off the NAT Gateway
+  DynamoDbEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref SyncVpc
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.dynamodb'
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+
+  SyncApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: $default
-      Description: Public HTTPS URL for TD Synnex callbacks or manual sync triggers
+      Description: Manual triggers and health check for Synnex→Shopify sync
 
-  SynnexShopifySyncFunction:
+  SyncFunction:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: !Sub '${AWS::StackName}-sync'
       CodeUri: .
-      Handler: src/index.handler
-      Description: Sync products and inventory from TD Synnex to Shopify
+      Handler: src/handler.handler
+      Description: TD Synnex XML catalog and pricing → Shopify sync
       Environment:
         Variables:
+          # Shopify
           SHOPIFY_STORE: !Ref ShopifyStore
           SHOPIFY_CLIENT_ID: !Ref ShopifyClientId
           SHOPIFY_CLIENT_SECRET: !Ref ShopifyClientSecret
+          SHOPIFY_ACCESS_TOKEN: !Ref ShopifyAccessToken
           SHOPIFY_LOCATION_ID: !Ref ShopifyLocationId
-          SYNNEX_API_KEY: !Ref SynnexApiKey
-          SYNNEX_OAUTH_CLIENT_ID: !Ref SynnexOAuthClientId
-          SYNNEX_OAUTH_CLIENT_SECRET: !Ref SynnexOAuthClientSecret
-          SYNNEX_TOKEN_URL: !Ref SynnexTokenUrl
-          SYNNEX_BASE_URL: !Ref SynnexBaseUrl
-          SYNNEX_PRODUCTS_PATH: !Ref SynnexProductsPath
-          SYNNEX_PRICE_AVAILABILITY_PATH: !Ref SynnexPriceAvailabilityPath
+          SHOPIFY_API_VERSION: !Ref ShopifyApiVersion
+          # SFTP
+          SYNNEX_SFTP_HOST: !Ref SynnexSftpHost
+          SYNNEX_SFTP_PORT: !Ref SynnexSftpPort
+          SYNNEX_SFTP_USERNAME: !Ref SynnexSftpUsername
+          SYNNEX_SFTP_REMOTE_PATH: !Ref SynnexSftpRemotePath
+          SYNNEX_SFTP_PASSWORD: !Ref SynnexSftpPassword
+          SYNNEX_SFTP_SECRET_ARN: !Ref SynnexSftpSecretArn
+          SYNNEX_SFTP_ZIP_ENTRY: !Ref SynnexSftpZipEntry
+          # XML P&A
           SYNNEX_XML_URL: !Ref SynnexXmlUrl
           SYNNEX_XML_CUSTOMER_NO: !Ref SynnexXmlCustomerNo
           SYNNEX_XML_USERNAME: !Ref SynnexXmlUsername
@@ -166,66 +304,185 @@ Resources:
           SYNNEX_XML_SKU_CHUNK_SIZE: !Ref SynnexXmlSkuChunkSize
           SYNNEX_XML_SYNC_PRICES: !Ref SynnexXmlSyncPrices
           SYNNEX_XML_MSRP_AS_COMPARE_AT: !Ref SynnexXmlMsrpAsCompareAt
-          SYNNEX_SFTP_HOST: !Ref SynnexSftpHost
-          SYNNEX_SFTP_PORT: !Ref SynnexSftpPort
-          SYNNEX_SFTP_USERNAME: !Ref SynnexSftpUsername
-          SYNNEX_SFTP_REMOTE_PATH: !Ref SynnexSftpRemotePath
-          SYNNEX_SFTP_PASSWORD: !Ref SynnexSftpPassword
-          SYNNEX_SFTP_SECRET_ARN: !Ref SynnexSftpSecretArn
-          PRICE_MARKUP_PERCENT: !Ref PriceMarkupPercent
+          # Filtering & pricing
+          SYNNEX_SYNC_FILTER_BRANDS: !Ref SynnexSyncFilterBrands
+          SYNNEX_SYNC_FILTER_CATEGORIES: !Ref SynnexSyncFilterCategories
+          SYNNEX_SYNC_ALLOWLIST: !Ref SynnexSyncAllowlist
           SYNNEX_SYNC_LIMIT: !Ref SynnexSyncLimit
-          STATE_BUCKET: !Ref StateBucket
+          ICECAT_USERNAME: !Ref IcecatUsername
+          SYNNEX_ORDER_URL: !Ref SynnexOrderUrl
+          SYNNEX_ORDER_STATUS_URL: !Ref SynnexOrderStatusUrl
+          SYNNEX_DEFAULT_SHIP_METHOD: !Ref SynnexDefaultShipMethod
+          ORDERS_TABLE: !Ref OrdersTable
+          PRICE_MARKUP_PERCENT: !Ref PriceMarkupPercent
+      VpcConfig:
+        SubnetIds:
+          - !Ref PrivateSubnet
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+      Policies:
+        # Allows Lambda to create network interfaces in the VPC (required for VPC mode)
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - Statement:
+            - Sid: SecretsManagerRead
+              Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !If
+                - HasSftpSecretArn
+                - !Ref SynnexSftpSecretArn
+                - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*'
       Events:
-        ScheduleSync:
+        # Daily full catalog sync at 2:00 AM UTC — enable when ready
+        CatalogSync:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 2 * * ? *)
+            Input: '{"job":"catalog-sync"}'
+            Description: Daily TD Synnex catalog download → Shopify product sync
+            Enabled: true
+
+        # Hourly price & inventory update — enable when ready
+        PriceSync:
           Type: Schedule
           Properties:
             Schedule: rate(1 hour)
-            Description: Run Synnex to Shopify sync every hour
-            Enabled: false
-        SyncApiHealth:
+            Input: '{"job":"price-sync"}'
+            Description: Hourly TD Synnex price and availability → Shopify update
+            Enabled: true
+
+        # HTTP endpoints for manual triggering and monitoring
+        HttpHealth:
           Type: HttpApi
           Properties:
-            ApiId: !Ref SyncHttpApi
+            ApiId: !Ref SyncApi
             Path: /health
             Method: GET
-        SyncApiPost:
+        HttpOauthCallback:
           Type: HttpApi
           Properties:
-            ApiId: !Ref SyncHttpApi
-            Path: /sync
+            ApiId: !Ref SyncApi
+            Path: /oauth/callback
+            Method: GET
+        HttpListZip:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /list-zip
+            Method: GET
+        HttpCatalogSync:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /catalog-sync
+            Method: POST
+        HttpPriceSync:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /price-sync
             Method: POST
 
-  SyncStateBucketPolicy:
-    Type: AWS::IAM::Policy
-    Condition: HasStateBucket
+        # Order fulfillment webhooks + manual triggers
+        HttpOrderWebhook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /webhook/orders
+            Method: POST
+        HttpSubmitOrders:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /submit-orders
+            Method: POST
+        HttpCheckTracking:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /check-tracking
+            Method: POST
+
+        # Submit pending orders to TD Synnex every 5 minutes
+        SubmitOrders:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Input: '{"job":"submit-orders"}'
+            Description: Submit pending Shopify orders to TD Synnex for dropship fulfillment
+            Enabled: false
+
+        # Check TD Synnex for tracking numbers every 30 minutes
+        CheckTracking:
+          Type: Schedule
+          Properties:
+            Schedule: rate(30 minutes)
+            Input: '{"job":"check-tracking"}'
+            Description: Check TD Synnex order status and update Shopify fulfillments
+            Enabled: false
+
+  # DynamoDB table for tracking Shopify → TD Synnex order state
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
     Properties:
-      PolicyName: !Sub '${AWS::StackName}-sync-state-s3'
+      TableName: !Sub '${AWS::StackName}-orders'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: shopifyOrderId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: shopifyOrderId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # Grant Lambda read/write access to the orders table
+  OrdersTablePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub '${AWS::StackName}-orders-dynamodb'
       Roles:
-        - !Ref SynnexShopifySyncFunctionRole
+        - !Ref SyncFunctionRole
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Sid: StateBucketCrud
-            Effect: Allow
+          - Effect: Allow
             Action:
-              - s3:GetObject
-              - s3:PutObject
-              - s3:DeleteObject
-              - s3:ListBucket
-            Resource:
-              - !Sub 'arn:aws:s3:::${StateBucket}'
-              - !Sub 'arn:aws:s3:::${StateBucket}/*'
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+              - dynamodb:Scan
+              - dynamodb:Query
+            Resource: !GetAtt OrdersTable.Arn
+
+# ─── Outputs ──────────────────────────────────────────────────────────────────
 
 Outputs:
-  SynnexShopifySyncFunctionArn:
-    Description: ARN of the sync Lambda
-    Value: !GetAtt SynnexShopifySyncFunction.Arn
-  SynnexShopifySyncFunctionName:
-    Description: Name of the sync Lambda
-    Value: !Ref SynnexShopifySyncFunction
-  SyncHttpApiUrl:
-    Description: Base URL of the HTTP API
-    Value: !Sub 'https://${SyncHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
-  SyncHttpApiHealthUrl:
-    Description: GET this URL for a health check
-    Value: !Sub 'https://${SyncHttpApi}.execute-api.${AWS::Region}.amazonaws.com/health'
+  LambdaStaticIp:
+    Description: Static public IP — give this to TD Synnex to whitelist for XML P&A API access
+    Value: !Ref NatElasticIp
+
+  SyncFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt SyncFunction.Arn
+  ApiBaseUrl:
+    Description: HTTP API base URL
+    Value: !Sub 'https://${SyncApi}.execute-api.${AWS::Region}.amazonaws.com'
+  HealthUrl:
+    Description: Health check endpoint
+    Value: !Sub 'https://${SyncApi}.execute-api.${AWS::Region}.amazonaws.com/health'
+  CatalogSyncUrl:
+    Description: Manual catalog sync trigger (POST)
+    Value: !Sub 'https://${SyncApi}.execute-api.${AWS::Region}.amazonaws.com/catalog-sync'
+  PriceSyncUrl:
+    Description: Manual price/inventory sync trigger (POST)
+    Value: !Sub 'https://${SyncApi}.execute-api.${AWS::Region}.amazonaws.com/price-sync'
+  ListZipUrl:
+    Description: List ZIP entries for SFTP debug (GET)
+    Value: !Sub 'https://${SyncApi}.execute-api.${AWS::Region}.amazonaws.com/list-zip'
+  OrderWebhookUrl:
+    Description: Register this URL in Shopify as the orders/paid webhook
+    Value: !Sub 'https://${SyncApi}.execute-api.${AWS::Region}.amazonaws.com/webhook/orders'
+  OrdersTableName:
+    Description: DynamoDB table tracking order fulfillment state
+    Value: !Ref OrdersTable
