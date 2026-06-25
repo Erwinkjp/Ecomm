@@ -1,0 +1,159 @@
+{%- style -%}
+.collection-sidebar { padding-bottom: 2rem; margin-bottom: 0.5rem; }
+.collection-sidebar__heading { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+.collection-sidebar__list { list-style: none; margin: 0; padding: 0; }
+.collection-sidebar__item { border-top: 0.1rem solid rgba(var(--color-foreground), 0.08); }
+.csb-row { display: flex; align-items: center; justify-content: space-between; }
+.collection-sidebar__link {
+  display: block; flex: 1;
+  padding: 0.9rem 0;
+  font-size: 1.4rem;
+  color: rgb(var(--color-foreground));
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.collection-sidebar__link:hover { opacity: 0.6; }
+.collection-sidebar__link--active { font-weight: 700; }
+.csb-toggle {
+  background: none; border: none; cursor: pointer;
+  padding: 0.9rem 0.2rem; color: rgb(var(--color-foreground));
+  font-size: 1.1rem; line-height: 1; opacity: 0.4; flex-shrink: 0;
+  transition: transform 0.2s, opacity 0.2s;
+}
+.csb-toggle:hover { opacity: 1; }
+.csb-item--open > .csb-row > .csb-toggle { transform: rotate(90deg); opacity: 1; }
+.csb-sub {
+  list-style: none; margin: 0; padding: 0 0 0.4rem 1.4rem; display: none;
+}
+.csb-item--open > .csb-sub { display: block; }
+.csb-sub li { border-top: 0.1rem solid rgba(var(--color-foreground), 0.05); }
+.csb-sub .collection-sidebar__link { font-size: 1.3rem; padding: 0.6rem 0; opacity: 0.75; }
+.csb-sub .collection-sidebar__link:hover,
+.csb-sub .collection-sidebar__link--active { opacity: 1; }
+{%- endstyle -%}
+
+{%- liquid
+  assign cur = collection.handle | default: ''
+-%}
+
+{%- comment -%}
+  Helper macro: renders one parent row + optional sub-list.
+  Called inline since Liquid has no functions — we use captures + renders instead.
+{%- endcomment -%}
+
+<nav class="collection-sidebar" aria-label="Browse by category">
+  <h2 class="collection-sidebar__heading facets__heading--vertical">Browse</h2>
+  <ul class="collection-sidebar__list">
+
+    {%- comment -%}── All Products ──{%- endcomment -%}
+    <li class="collection-sidebar__item">
+      {%- comment -%} Use the real /collections/all-products smart collection: the virtual /collections/all has no maintained price-sort index and 500s ("Something went wrong") when sorted by price on this large catalog. {%- endcomment -%}
+      <a href="/collections/all-products" class="collection-sidebar__link{% if cur == 'all-products' or cur == 'all' %} collection-sidebar__link--active{% endif %}">All Products</a>
+    </li>
+
+    {%- comment -%}── Computers & Portables ──{%- endcomment -%}
+    {%- assign csb_children = 'notebooks,desktops,workstations,servers,all-in-one-pcs,chromebooks,tablets,ai-laptops,ai-desktops,ai-pcs' | split: ',' -%}
+    {%- assign csb_open = false -%}
+    {%- if cur == 'laptops-desktops-servers' or csb_children contains cur %}{%- assign csb_open = true -%}{%- endif -%}
+    <li class="collection-sidebar__item csb-item{% if csb_open %} csb-item--open{% endif %}">
+      <div class="csb-row">
+        <a href="/collections/laptops-desktops-servers" class="collection-sidebar__link{% if cur == 'laptops-desktops-servers' %} collection-sidebar__link--active{% endif %}">Laptops, Desktops &amp; Servers</a>
+        <button class="csb-toggle" aria-label="Toggle">&#8250;</button>
+      </div>
+      <ul class="csb-sub">
+        <li><a href="/collections/notebooks"     class="collection-sidebar__link{% if cur == 'notebooks' %} collection-sidebar__link--active{% endif %}">Notebooks</a></li>
+        <li><a href="/collections/desktops"      class="collection-sidebar__link{% if cur == 'desktops' %} collection-sidebar__link--active{% endif %}">Desktops</a></li>
+        <li><a href="/collections/workstations"  class="collection-sidebar__link{% if cur == 'workstations' %} collection-sidebar__link--active{% endif %}">Workstations</a></li>
+        <li><a href="/collections/servers"       class="collection-sidebar__link{% if cur == 'servers' %} collection-sidebar__link--active{% endif %}">Servers</a></li>
+        <li><a href="/collections/all-in-one-pcs" class="collection-sidebar__link{% if cur == 'all-in-one-pcs' %} collection-sidebar__link--active{% endif %}">All-in-One PCs</a></li>
+        <li><a href="/collections/chromebooks"   class="collection-sidebar__link{% if cur == 'chromebooks' %} collection-sidebar__link--active{% endif %}">Chromebooks</a></li>
+        <li><a href="/collections/tablets"       class="collection-sidebar__link{% if cur == 'tablets' %} collection-sidebar__link--active{% endif %}">Tablets</a></li>
+      </ul>
+    </li>
+
+    {%- comment -%}── Monitors & Displays ──{%- endcomment -%}
+    {%- assign csb_children = 'monitors,projectors,televisions' | split: ',' -%}
+    {%- assign csb_open = false -%}
+    {%- if cur == 'monitors-displays' or csb_children contains cur %}{%- assign csb_open = true -%}{%- endif -%}
+    <li class="collection-sidebar__item csb-item{% if csb_open %} csb-item--open{% endif %}">
+      <div class="csb-row">
+        <a href="/collections/monitors-displays" class="collection-sidebar__link{% if cur == 'monitors-displays' %} collection-sidebar__link--active{% endif %}">Monitors &amp; Displays</a>
+        <button class="csb-toggle" aria-label="Toggle">&#8250;</button>
+      </div>
+      <ul class="csb-sub">
+        <li><a href="/collections/monitors"     class="collection-sidebar__link{% if cur == 'monitors' %} collection-sidebar__link--active{% endif %}">Monitors</a></li>
+        <li><a href="/collections/projectors"   class="collection-sidebar__link{% if cur == 'projectors' %} collection-sidebar__link--active{% endif %}">Projectors</a></li>
+        <li><a href="/collections/televisions"  class="collection-sidebar__link{% if cur == 'televisions' %} collection-sidebar__link--active{% endif %}">Televisions</a></li>
+      </ul>
+    </li>
+
+    {%- comment -%}── Networking ──{%- endcomment -%}
+    <li class="collection-sidebar__item">
+      <a href="/collections/networking" class="collection-sidebar__link{% if cur == 'networking' %} collection-sidebar__link--active{% endif %}">Networking</a>
+    </li>
+
+    {%- comment -%}── Storage & NAS ──{%- endcomment -%}
+    <li class="collection-sidebar__item">
+      <a href="/collections/storage-nas" class="collection-sidebar__link{% if cur == 'storage-nas' %} collection-sidebar__link--active{% endif %}">Storage &amp; NAS</a>
+    </li>
+
+    {%- comment -%}── Power & UPS ──{%- endcomment -%}
+    <li class="collection-sidebar__item">
+      <a href="/collections/power-ups" class="collection-sidebar__link{% if cur == 'power-ups' %} collection-sidebar__link--active{% endif %}">Power &amp; UPS</a>
+    </li>
+
+    {%- comment -%}── Security & Surveillance ──{%- endcomment -%}
+    <li class="collection-sidebar__item">
+      <a href="/collections/security-surveillance" class="collection-sidebar__link{% if cur == 'security-surveillance' %} collection-sidebar__link--active{% endif %}">Security &amp; Surveillance</a>
+    </li>
+
+    {%- comment -%}── Printers & Supplies ──{%- endcomment -%}
+    <li class="collection-sidebar__item">
+      <a href="/collections/printers-supplies" class="collection-sidebar__link{% if cur == 'printers-supplies' %} collection-sidebar__link--active{% endif %}">Printers &amp; Supplies</a>
+    </li>
+
+    {%- comment -%}── Memory ──{%- endcomment -%}
+    <li class="collection-sidebar__item">
+      <a href="/collections/memory" class="collection-sidebar__link{% if cur == 'memory' %} collection-sidebar__link--active{% endif %}">Memory</a>
+    </li>
+
+    {%- comment -%}── Components ──{%- endcomment -%}
+    <li class="collection-sidebar__item">
+      <a href="/collections/components" class="collection-sidebar__link{% if cur == 'components' %} collection-sidebar__link--active{% endif %}">Components</a>
+    </li>
+
+    {%- comment -%}── Keyboards & Mice ──{%- endcomment -%}
+    {%- assign csb_children = 'keyboards,mice' | split: ',' -%}
+    {%- assign csb_open = false -%}
+    {%- if cur == 'keyboards-mice' or csb_children contains cur %}{%- assign csb_open = true -%}{%- endif -%}
+    <li class="collection-sidebar__item csb-item{% if csb_open %} csb-item--open{% endif %}">
+      <div class="csb-row">
+        <a href="/collections/keyboards-mice" class="collection-sidebar__link{% if cur == 'keyboards-mice' %} collection-sidebar__link--active{% endif %}">Keyboards &amp; Mice</a>
+        <button class="csb-toggle" aria-label="Toggle">&#8250;</button>
+      </div>
+      <ul class="csb-sub">
+        <li><a href="/collections/keyboards" class="collection-sidebar__link{% if cur == 'keyboards' %} collection-sidebar__link--active{% endif %}">Keyboards</a></li>
+        <li><a href="/collections/mice"      class="collection-sidebar__link{% if cur == 'mice' %} collection-sidebar__link--active{% endif %}">Mice</a></li>
+      </ul>
+    </li>
+
+    {%- comment -%}── Accessories & Cables ──{%- endcomment -%}
+    <li class="collection-sidebar__item">
+      <a href="/collections/accessories-cables" class="collection-sidebar__link{% if cur == 'accessories-cables' %} collection-sidebar__link--active{% endif %}">Accessories &amp; Cables</a>
+    </li>
+
+    {%- comment -%}── Audio & Electronics ──{%- endcomment -%}
+    <li class="collection-sidebar__item">
+      <a href="/collections/audio-electronics" class="collection-sidebar__link{% if cur == 'audio-electronics' %} collection-sidebar__link--active{% endif %}">Audio &amp; Electronics</a>
+    </li>
+
+  </ul>
+</nav>
+
+<script>
+  document.querySelectorAll('.csb-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      btn.closest('.csb-item').classList.toggle('csb-item--open');
+    });
+  });
+</script>

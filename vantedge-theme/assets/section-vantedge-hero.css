@@ -1,0 +1,185 @@
+.vantedge-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: var(--hero-height, 600px);
+  background: var(--hero-bg-start, #0f172a);
+}
+
+/* ── Gradient background ─────────────────────────────────────────────────── */
+.vantedge-hero__bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 50%, rgba(37, 99, 235, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 80% at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 55%),
+    linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+}
+
+/* ── Subtle dot-grid overlay ─────────────────────────────────────────────── */
+.vantedge-hero__grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+}
+
+/* ── Accent line ─────────────────────────────────────────────────────────── */
+.vantedge-hero__accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb, #6366f1, #2563eb);
+  background-size: 200% 100%;
+  animation: hero-accent-slide 4s linear infinite;
+}
+
+@keyframes hero-accent-slide {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+/* ── Content ─────────────────────────────────────────────────────────────── */
+.vantedge-hero__content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 8rem 2.4rem;
+  max-width: 80rem;
+  margin: 0 auto;
+}
+
+.vantedge-hero__eyebrow {
+  display: inline-block;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #60a5fa;
+  margin-bottom: 1.6rem;
+  padding: 0.4rem 1.2rem;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 2rem;
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.vantedge-hero__heading {
+  font-size: clamp(3.2rem, 6vw, 6rem);
+  font-weight: 800;
+  line-height: 1.1;
+  color: #f8fafc;
+  margin: 0 0 2rem;
+  letter-spacing: -0.02em;
+}
+
+.vantedge-hero__heading span {
+  background: linear-gradient(135deg, #60a5fa, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.vantedge-hero__subtext {
+  font-size: clamp(1.5rem, 2vw, 1.8rem);
+  line-height: 1.6;
+  color: #94a3b8;
+  margin: 0 auto 3.6rem;
+  max-width: 56rem;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.vantedge-hero__buttons {
+  display: flex;
+  gap: 1.2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.vantedge-hero__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.2rem 2.8rem;
+  border-radius: 0.6rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+  cursor: pointer;
+}
+
+.vantedge-hero__btn--primary {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
+}
+
+.vantedge-hero__btn--primary:hover {
+  background: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(37, 99, 235, 0.5);
+}
+
+.vantedge-hero__btn--secondary {
+  background: rgba(255,255,255,0.06);
+  color: #e2e8f0;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+.vantedge-hero__btn--secondary:hover {
+  background: rgba(255,255,255,0.12);
+  transform: translateY(-2px);
+}
+
+/* ── Trust badges ────────────────────────────────────────────────────────── */
+.vantedge-hero__badges {
+  margin-top: 4rem;
+  display: flex;
+  gap: 2.4rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.vantedge-hero__badge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.3rem;
+  color: #64748b;
+}
+
+.vantedge-hero__badge svg {
+  width: 1.6rem;
+  height: 1.6rem;
+  stroke: #2563eb;
+  fill: none;
+  stroke-width: 2;
+  flex-shrink: 0;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media screen and (max-width: 749px) {
+  .vantedge-hero {
+    min-height: var(--hero-height-mobile, 480px);
+  }
+
+  .vantedge-hero__content {
+    padding: 6rem 2rem;
+  }
+
+  .vantedge-hero__buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .vantedge-hero__btn {
+    width: 100%;
+    max-width: 32rem;
+    justify-content: center;
+  }
+}

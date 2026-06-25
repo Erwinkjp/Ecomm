@@ -1,0 +1,153 @@
+.brand-carousel {
+  padding-top: var(--brand-carousel-padding-top, 40px);
+  padding-bottom: var(--brand-carousel-padding-bottom, 40px);
+}
+
+.brand-carousel__heading {
+  text-align: center;
+  margin-bottom: 2.4rem;
+}
+
+.brand-carousel__heading .title {
+  font-size: 1.4rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(var(--color-foreground), 0.55);
+  font-weight: 500;
+}
+
+/* ── Track ─────────────────────────────────────────────────────────────────── */
+.brand-carousel__wrapper {
+  position: relative;
+}
+
+.brand-carousel__track {
+  display: flex;
+  gap: 1.6rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0.8rem 0;
+  /* centre small sets, scroll large sets */
+  justify-content: flex-start;
+}
+
+.brand-carousel__track::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Brand card ─────────────────────────────────────────────────────────────── */
+.brand-carousel__item {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16rem;
+  height: 9rem;
+  border: 1px solid rgba(var(--color-foreground), 0.08);
+  border-radius: 1.2rem;
+  background: rgb(var(--color-background));
+  text-decoration: none;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  padding: 1.6rem 2rem;
+  cursor: pointer;
+}
+
+.brand-carousel__item:hover {
+  border-color: rgba(var(--color-foreground), 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Logo image — grayscale at rest, full colour on hover */
+.brand-carousel__logo {
+  max-width: 100%;
+  max-height: 5.2rem;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  filter: grayscale(100%);
+  opacity: 0.7;
+  transition: filter 0.25s, opacity 0.25s;
+}
+
+.brand-carousel__item:hover .brand-carousel__logo {
+  filter: grayscale(0%);
+  opacity: 1;
+}
+
+/* Text fallback when no logo is uploaded */
+.brand-carousel__name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(var(--color-foreground), 0.6);
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+
+.brand-carousel__item:hover .brand-carousel__name {
+  color: rgb(var(--color-foreground));
+}
+
+/* ── Arrow nav buttons ────────────────────────────────────────────────────── */
+.brand-carousel__btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: rgb(var(--color-background));
+  border: 1px solid rgba(var(--color-foreground), 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: background 0.2s, border-color 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.brand-carousel__btn:hover {
+  background: rgba(var(--color-foreground), 0.06);
+  border-color: rgba(var(--color-foreground), 0.3);
+}
+
+.brand-carousel__btn--prev { left: -2rem; }
+.brand-carousel__btn--next { right: -2rem; }
+
+.brand-carousel__btn svg {
+  width: 1.6rem;
+  height: 1.6rem;
+  fill: none;
+  stroke: rgb(var(--color-foreground));
+  stroke-width: 1.8;
+}
+
+/* ── "View all brands" link ─────────────────────────────────────────────── */
+.brand-carousel__footer {
+  text-align: center;
+  margin-top: 2.4rem;
+}
+
+.brand-carousel__footer a {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: rgb(var(--color-foreground));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media screen and (max-width: 749px) {
+  .brand-carousel__item {
+    width: 13rem;
+    height: 8rem;
+  }
+
+  .brand-carousel__btn {
+    display: none;
+  }
+}

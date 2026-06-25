@@ -1,0 +1,296 @@
+{%- comment -%}
+  Shop By sidebar — renders a "SHOP BY" button + flyout category panel.
+  Replaces the horizontal mega menu on desktop (≥990px).
+  Mobile: hidden; the existing header-drawer handles mobile nav.
+
+  Accepts:
+    menu {Object} — Shopify linklist (section.settings.menu)
+{%- endcomment -%}
+
+{%- style -%}
+/* ── Shop By bar ─────────────────────────────────────────────────── */
+.shop-by-bar {
+  position: relative;
+  z-index: 400;
+  background: #f0f0f0;
+  border-bottom: 1px solid rgba(0,0,0,.1);
+}
+.shop-by-bar__inner {
+  display: flex;
+  align-items: stretch;
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: 0 3rem;
+}
+
+/* ── SHOP BY button ──────────────────────────────────────────────── */
+.shop-by-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .8rem;
+  background: #0ea5e9;
+  color: #fff;
+  border: none;
+  padding: 1rem 1.8rem;
+  font-family: var(--font-body-family);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.shop-by-btn:hover,
+.shop-by-btn[aria-expanded="true"] {
+  background: #0284c7;
+}
+.shop-by-btn__bars {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  width: 1.6rem;
+}
+.shop-by-btn__bars span {
+  display: block;
+  height: .2rem;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+/* ── Panel ───────────────────────────────────────────────────────── */
+.shop-by-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 300;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.12);
+  box-shadow: 0 8px 32px rgba(0,0,0,.15);
+  width: 22rem;
+  display: none;
+}
+.shop-by-panel[aria-hidden="false"] {
+  display: block;
+}
+
+/* ── Category list ───────────────────────────────────────────────── */
+.shop-by-list {
+  list-style: none;
+  margin: 0;
+  padding: .6rem 0;
+}
+.shop-by-item {
+  position: relative;
+}
+.shop-by-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .9rem 1.6rem;
+  text-decoration: none;
+  color: #222;
+  font-size: 1.4rem;
+  line-height: 1.3;
+  transition: background .1s, color .1s;
+}
+.shop-by-link:hover,
+.shop-by-item--open > .shop-by-link {
+  background: #0ea5e9;
+  color: #fff;
+}
+.shop-by-link__title {
+  flex: 1;
+}
+.shop-by-link__arrow {
+  font-size: 1.8rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-left: .8rem;
+  opacity: .7;
+}
+.shop-by-item--open > .shop-by-link .shop-by-link__arrow {
+  opacity: 1;
+}
+
+/* ── Flyout subcategory panel ────────────────────────────────────── */
+.shop-by-flyout {
+  position: absolute;
+  left: 100%;
+  top: -.6rem;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.12);
+  box-shadow: 4px 4px 24px rgba(0,0,0,.12);
+  list-style: none;
+  margin: 0;
+  padding: .6rem 0;
+  min-width: 18rem;
+  display: none;
+  z-index: 301;
+}
+.shop-by-item--open > .shop-by-flyout {
+  display: block;
+}
+.shop-by-flyout__link {
+  display: block;
+  padding: .7rem 2rem;
+  text-decoration: none;
+  color: #222;
+  font-size: 1.4rem;
+  white-space: nowrap;
+  transition: background .1s, color .1s;
+}
+.shop-by-flyout__link:hover {
+  background: #f5f5f5;
+  color: #0ea5e9;
+}
+
+/* ── Hidden on mobile/tablet ─────────────────────────────────────── */
+@media (max-width: 989px) {
+  .shop-by-bar {
+    display: none;
+  }
+}
+{%- endstyle -%}
+
+<div class="shop-by-bar">
+  <div class="shop-by-bar__inner">
+    <shop-by-sidebar>
+      <button
+        class="shop-by-btn"
+        aria-expanded="false"
+        aria-controls="ShopByPanel"
+        aria-haspopup="true"
+      >
+        <span class="shop-by-btn__bars" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        SHOP BY
+      </button>
+
+      <div
+        id="ShopByPanel"
+        class="shop-by-panel"
+        aria-hidden="true"
+        role="dialog"
+        aria-label="Shop by category"
+      >
+        <ul class="shop-by-list" role="list">
+          {%- for link in menu.links -%}
+            <li class="shop-by-item{%- if link.links != blank %} shop-by-item--has-children{%- endif -%}">
+              <a
+                class="shop-by-link"
+                href="{{ link.url }}"
+                {% if link.current %}aria-current="page"{% endif %}
+              >
+                <span class="shop-by-link__title">{{- link.title -}}</span>
+                {%- if link.links != blank -%}
+                  <span class="shop-by-link__arrow" aria-hidden="true">&#8250;</span>
+                {%- endif -%}
+              </a>
+              {%- if link.links != blank -%}
+                <ul class="shop-by-flyout" role="list">
+                  {%- for child in link.links -%}
+                    <li>
+                      <a
+                        class="shop-by-flyout__link"
+                        href="{{ child.url }}"
+                        {% if child.current %}aria-current="page"{% endif %}
+                      >
+                        {{- child.title -}}
+                      </a>
+                    </li>
+                  {%- endfor -%}
+                </ul>
+              {%- endif -%}
+            </li>
+          {%- endfor -%}
+        </ul>
+      </div>
+    </shop-by-sidebar>
+  </div>
+</div>
+
+<script>
+  (function () {
+    if (customElements.get('shop-by-sidebar')) return;
+
+    class ShopBySidebar extends HTMLElement {
+      connectedCallback() {
+        this.btn    = this.querySelector('.shop-by-btn');
+        this.panel  = this.querySelector('.shop-by-panel');
+        this.items  = Array.from(this.querySelectorAll('.shop-by-item--has-children'));
+
+        this.btn.addEventListener('click', () => this._toggle());
+
+        this.items.forEach(item => {
+          item.addEventListener('mouseenter', () => this._openFlyout(item));
+
+          const parentA = item.querySelector('.shop-by-link');
+          const parentTitle = parentA?.querySelector('.shop-by-link__title')?.textContent.trim();
+          const parentUrl = parentA?.getAttribute('href');
+
+          item.querySelectorAll('.shop-by-flyout__link').forEach(childA => {
+            childA.addEventListener('click', () => {
+              sessionStorage.setItem('breadcrumb_collection', JSON.stringify({
+                parent: { title: parentTitle, url: parentUrl },
+                child: { title: childA.textContent.trim(), url: childA.getAttribute('href') }
+              }));
+            });
+          });
+        });
+
+        // Top-level links with no children
+        this.querySelectorAll('.shop-by-item:not(.shop-by-item--has-children) .shop-by-link').forEach(a => {
+          a.addEventListener('click', () => {
+            sessionStorage.setItem('breadcrumb_collection', JSON.stringify({
+              parent: null,
+              child: { title: a.querySelector('.shop-by-link__title')?.textContent.trim(), url: a.getAttribute('href') }
+            }));
+          });
+        });
+
+        this.panel.addEventListener('mouseleave', () => this._closeAllFlyouts());
+
+        document.addEventListener('click', (e) => {
+          if (!this.contains(e.target)) this._closePanel();
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') this._closePanel();
+        });
+      }
+
+      _toggle() {
+        this.panel.getAttribute('aria-hidden') === 'false'
+          ? this._closePanel()
+          : this._openPanel();
+      }
+
+      _openPanel() {
+        this.panel.setAttribute('aria-hidden', 'false');
+        this.btn.setAttribute('aria-expanded', 'true');
+        const first = this.items[0];
+        if (first) this._openFlyout(first);
+      }
+
+      _closePanel() {
+        this.panel.setAttribute('aria-hidden', 'true');
+        this.btn.setAttribute('aria-expanded', 'false');
+        this._closeAllFlyouts();
+      }
+
+      _openFlyout(item) {
+        this._closeAllFlyouts();
+        item.classList.add('shop-by-item--open');
+      }
+
+      _closeAllFlyouts() {
+        this.items.forEach(i => i.classList.remove('shop-by-item--open'));
+      }
+    }
+
+    customElements.define('shop-by-sidebar', ShopBySidebar);
+  })();
+</script>

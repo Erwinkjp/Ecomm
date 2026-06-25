@@ -1,0 +1,12 @@
+{
+  "sections": {
+    "main": {
+      "type": "page-order-tracking",
+      "settings": {
+        "padding_top": 40,
+        "padding_bottom": 60
+      }
+    }
+  },
+  "order": ["main"]
+}

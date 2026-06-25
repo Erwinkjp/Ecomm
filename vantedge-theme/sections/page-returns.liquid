@@ -1,0 +1,255 @@
+{% comment %}
+  Returns page — policy overview + self-service return request form.
+  Attach this section via templates/page.returns.json.
+{% endcomment %}
+
+{{ 'section-main-page.css' | asset_url | stylesheet_tag }}
+{{ 'component-form.css' | asset_url | stylesheet_tag }}
+
+{%- style -%}
+  .section-{{ section.id }}-padding {
+    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
+  }
+  @media screen and (min-width: 750px) {
+    .section-{{ section.id }}-padding {
+      padding-top: {{ section.settings.padding_top }}px;
+      padding-bottom: {{ section.settings.padding_bottom }}px;
+    }
+  }
+  .returns-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: start;
+  }
+  @media screen and (max-width: 749px) {
+    .returns-grid { grid-template-columns: 1fr; }
+  }
+  .returns-policy__item {
+    display: flex;
+    gap: 1.6rem;
+    margin-bottom: 2.4rem;
+  }
+  .returns-policy__icon {
+    flex-shrink: 0;
+    width: 4.8rem;
+    height: 4.8rem;
+    border-radius: 50%;
+    background: rgba(var(--color-foreground), 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+  }
+  .returns-policy__text h3 {
+    margin: 0 0 0.4rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  .returns-policy__text p {
+    margin: 0;
+    font-size: 1.4rem;
+    color: rgba(var(--color-foreground), 0.7);
+    line-height: 1.6;
+  }
+  .returns-form {
+    background: rgba(var(--color-foreground), 0.03);
+    border: 1px solid rgba(var(--color-foreground), 0.08);
+    border-radius: 1.2rem;
+    padding: 3.2rem;
+  }
+  .returns-form h2 {
+    margin-top: 0;
+    margin-bottom: 2.4rem;
+  }
+  .field__label { font-weight: 500; }
+{%- endstyle -%}
+
+<div class="page-width section-{{ section.id }}-padding">
+  <h1 class="main-page-title page-title h0" style="margin-bottom:3.2rem;">Returns &amp; Exchanges</h1>
+
+  <div class="returns-grid">
+    <!-- ── Policy overview ─────────────────────────────────────────────── -->
+    <div class="returns-policy">
+      <div class="returns-policy__item">
+        <div class="returns-policy__icon">📦</div>
+        <div class="returns-policy__text">
+          <h3>30-day return window</h3>
+          <p>Return most items within 30 days of delivery for a full refund or exchange, as long as they're unused and in original packaging.</p>
+        </div>
+      </div>
+
+      <div class="returns-policy__item">
+        <div class="returns-policy__icon">🔍</div>
+        <div class="returns-policy__text">
+          <h3>How to start a return</h3>
+          <p>Fill in the form, and we'll email you a prepaid return label within 1 business day. Drop the package at any Australia Post outlet.</p>
+        </div>
+      </div>
+
+      <div class="returns-policy__item">
+        <div class="returns-policy__icon">💳</div>
+        <div class="returns-policy__text">
+          <h3>Refunds</h3>
+          <p>Refunds are processed back to the original payment method within 3–5 business days of receiving your return.</p>
+        </div>
+      </div>
+
+      <div class="returns-policy__item">
+        <div class="returns-policy__icon">⚠️</div>
+        <div class="returns-policy__text">
+          <h3>Exclusions</h3>
+          <p>Software licences, opened consumables, and custom-configured items are non-returnable unless faulty.</p>
+        </div>
+      </div>
+
+      <div class="returns-policy__item">
+        <div class="returns-policy__icon">🛠️</div>
+        <div class="returns-policy__text">
+          <h3>Faulty or DOA items</h3>
+          <p>Dead-on-arrival or defective products are covered regardless of the 30-day window. Contact us and we'll arrange a replacement or refund.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Return request form ─────────────────────────────────────────── -->
+    <div class="returns-form">
+      <h2 class="h3">Request a Return</h2>
+
+      {%- if form.posted_successfully? -%}
+        <p class="form-status form-status-list form__message" tabindex="-1" autofocus>
+          ✓ Your return request has been submitted! We'll email you a return label within 1 business day.
+        </p>
+      {%- else -%}
+        {%- form 'contact', id: 'vantedge-returns-form' -%}
+          {%- if form.errors -%}
+            <div class="form__message">
+              <ul>
+                {%- for field in form.errors -%}
+                  <li>{{ field }}: {{ form.errors.messages[field] }}</li>
+                {%- endfor -%}
+              </ul>
+            </div>
+          {%- endif -%}
+
+          <input type="hidden" name="contact[subject]" value="Return Request">
+
+          <div class="field">
+            <input
+              class="field__input"
+              autocomplete="name"
+              type="text"
+              id="returns-name"
+              name="contact[name]"
+              value="{% if form.name %}{{ form.name }}{% elsif customer %}{{ customer.name }}{% endif %}"
+              placeholder="Your name"
+              required
+            >
+            <label class="field__label" for="returns-name">Full name <span aria-hidden="true">*</span></label>
+          </div>
+
+          <div class="field">
+            <input
+              class="field__input"
+              autocomplete="email"
+              type="email"
+              id="returns-email"
+              name="contact[email]"
+              value="{% if form.email %}{{ form.email }}{% elsif customer %}{{ customer.email }}{% endif %}"
+              placeholder="Email address"
+              required
+            >
+            <label class="field__label" for="returns-email">Email <span aria-hidden="true">*</span></label>
+          </div>
+
+          <div class="field">
+            <input
+              class="field__input"
+              type="text"
+              id="returns-order"
+              name="contact[Order number]"
+              value="{{ form['Order number'] | default: request.parameters.order }}"
+              placeholder="e.g. #1234"
+              required
+            >
+            <label class="field__label" for="returns-order">Order number <span aria-hidden="true">*</span></label>
+          </div>
+
+          <div class="field">
+            <input
+              class="field__input"
+              type="text"
+              id="returns-product"
+              name="contact[Product name or SKU]"
+              value="{{ form['Product name or SKU'] }}"
+              placeholder="e.g. Logitech MX Master 3"
+            >
+            <label class="field__label" for="returns-product">Product name or SKU</label>
+          </div>
+
+          <div class="field">
+            <select
+              class="select__select field__input"
+              id="returns-reason"
+              name="contact[Return reason]"
+              required
+              style="appearance:auto;"
+            >
+              <option value="" disabled selected>Select a reason</option>
+              <option value="Wrong item received">Wrong item received</option>
+              <option value="Item arrived damaged">Item arrived damaged</option>
+              <option value="Faulty / Dead on arrival">Faulty / Dead on arrival</option>
+              <option value="No longer needed">No longer needed</option>
+              <option value="Ordered by mistake">Ordered by mistake</option>
+              <option value="Other">Other</option>
+            </select>
+            <label class="field__label" for="returns-reason">Reason for return <span aria-hidden="true">*</span></label>
+          </div>
+
+          <div class="field">
+            <textarea
+              class="field__input"
+              id="returns-message"
+              name="contact[Additional details]"
+              rows="4"
+              placeholder="Any additional details (optional)"
+            >{{ form['Additional details'] }}</textarea>
+            <label class="field__label" for="returns-message">Additional details</label>
+          </div>
+
+          <button type="submit" class="button button--full-width">
+            Submit return request
+          </button>
+        {%- endform -%}
+      {%- endif -%}
+    </div>
+  </div><!-- /.returns-grid -->
+</div>
+
+{% schema %}
+{
+  "name": "Returns page",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0, "max": 100, "step": 4, "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0, "max": 100, "step": 4, "unit": "px",
+      "default": 36
+    }
+  ],
+  "presets": [
+    { "name": "Returns page" }
+  ]
+}
+{% endschema %}

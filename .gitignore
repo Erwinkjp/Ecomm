@@ -9,5 +9,6 @@ __pycache__/
 .env
 **/.env
 
-# vantedge-theme is its own git repo (no remote) — exclude from this repo
-vantedge-theme/
+
+# local git backups (not for commit)
+.git-backups/

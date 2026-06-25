@@ -1,0 +1,297 @@
+{%- comment -%}
+  shop-by-hero.liquid
+  Homepage hero: full-width image carousel with a single horizontal navigation bar
+  overlaid across the top. Top-level menu items (Shop by Category, Solutions, Request
+  a Quote) open a horizontal multi-column dropdown (mega-menu) on hover / tap.
+  Replaces the old left vertical sidebar so there's ONE nav, not two.
+{%- endcomment -%}
+
+{%- style -%}
+/* Hide the header's SHOP BY bar on the homepage — the hero's own nav replaces it. */
+.template--index .shop-by-bar { display: none !important; }
+
+/* ── Hero shell ──────────────────────────────────────────────────── */
+.sbh {
+  position: relative;
+  width: 100%;
+  height: {{ section.settings.height_desktop }}px;
+  background: #1a1a2e;
+  overflow: hidden;
+}
+
+/* ── Carousel ────────────────────────────────────────────────────── */
+.sbh__carousel { position: absolute; inset: 0; }
+.sbh__slides { position: relative; width: 100%; height: 100%; }
+.sbh__slide {
+  position: absolute; inset: 0;
+  opacity: 0; transition: opacity .5s ease; pointer-events: none;
+}
+.sbh__slide--active { opacity: 1; pointer-events: auto; }
+.sbh__slide-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sbh__slide-placeholder {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 2.4rem; font-weight: 700; color: rgba(255,255,255,.6);
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+/* ── Slide caption ───────────────────────────────────────────────── */
+.sbh__slide-content {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 2.4rem 3rem 3rem;
+  background: linear-gradient(to top, rgba(0,0,0,.6) 0%, transparent 100%);
+  color: #fff;
+}
+.sbh__slide-label { font-size: 2.4rem; font-weight: 700; margin: 0 0 .4rem; line-height: 1.2; }
+.sbh__slide-sub   { font-size: 1.4rem; margin: 0 0 1.2rem; opacity: .85; }
+.sbh__slide-btn {
+  display: inline-block; background: #0ea5e9; color: #fff;
+  padding: .7rem 1.8rem; font-size: 1.3rem; font-weight: 600; text-decoration: none;
+  transition: background .15s;
+}
+.sbh__slide-btn:hover { background: #0284c7; }
+
+/* ── Arrows / dots ───────────────────────────────────────────────── */
+.sbh__prev, .sbh__next {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  background: rgba(0,0,0,.35); border: none; color: #fff;
+  width: 4rem; height: 4rem; display: flex; align-items: center; justify-content: center;
+  font-size: 2.4rem; cursor: pointer; z-index: 15; transition: background .15s;
+}
+.sbh__prev:hover, .sbh__next:hover { background: rgba(255,255,255,.35); }
+.sbh__prev { left: 1.2rem; } .sbh__next { right: 1.2rem; }
+.sbh__dots {
+  position: absolute; bottom: 1.4rem; left: 50%; transform: translateX(-50%);
+  display: flex; gap: .6rem; z-index: 15;
+}
+.sbh__dot {
+  width: .8rem; height: .8rem; border-radius: 50%; background: rgba(255,255,255,.4);
+  border: none; cursor: pointer; padding: 0; transition: background .2s, transform .2s;
+}
+.sbh__dot--active { background: #fff; transform: scale(1.25); }
+
+/* ── Overlaid nav bar ────────────────────────────────────────────── */
+.sbh__navbar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 30;
+  background: linear-gradient(to bottom, rgba(10,15,28,.92) 0%, rgba(10,15,28,.78) 100%);
+  backdrop-filter: blur(2px);
+}
+.sbh__menu {
+  display: flex; align-items: stretch; gap: 0;
+  list-style: none; margin: 0 auto; padding: 0 1.5rem;
+  max-width: var(--page-width);
+}
+.sbh__mi { position: static; display: flex; align-items: stretch; }
+.sbh__ml {
+  display: flex; align-items: center; gap: .6rem;
+  padding: 1.1rem 1.6rem; color: #fff; text-decoration: none;
+  font-size: 1.35rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap;
+  transition: background .12s, color .12s; border: none; background: none; cursor: pointer;
+}
+.sbh__mi--has:hover > .sbh__ml,
+.sbh__mi--open  > .sbh__ml { background: #0ea5e9; color: #fff; }
+.sbh__caret { font-size: 1rem; opacity: .8; transition: transform .15s; }
+.sbh__mi--open .sbh__caret { transform: rotate(180deg); }
+
+/* Request a Quote (childless) → pushed right, button style */
+.sbh__mi:not(.sbh__mi--has) { margin-left: auto; }
+.sbh__mi:not(.sbh__mi--has) > .sbh__ml {
+  margin: .55rem 0; padding: .55rem 1.6rem; background: #0ea5e9; border-radius: 3px;
+}
+.sbh__mi:not(.sbh__mi--has) > .sbh__ml:hover { background: #0284c7; }
+
+/* ── Horizontal dropdown (mega-menu) ─────────────────────────────── */
+.sbh__dd {
+  position: absolute; left: 0; right: 0; top: 100%;
+  background: #fff; box-shadow: 0 14px 30px rgba(0,0,0,.18);
+  border-top: 3px solid #0ea5e9;
+  display: none; z-index: 40;
+}
+.sbh__mi--open > .sbh__dd { display: block; }
+.sbh__dd-inner { max-width: var(--page-width); margin: 0 auto; padding: 1.8rem 3rem 2.2rem; }
+.sbh__dd-head {
+  font-size: 1.1rem; text-transform: uppercase; letter-spacing: .08em;
+  color: #94a3b8; margin: 0 0 1.2rem;
+}
+.sbh__dd-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: .2rem 2.4rem;
+}
+.sbh__dd-link {
+  display: block; padding: .7rem .4rem; color: #1f2937; text-decoration: none;
+  font-size: 1.35rem; border-bottom: 1px solid #f1f5f9; transition: color .12s;
+}
+.sbh__dd-link:hover { color: #0ea5e9; }
+.sbh__dd-all {
+  display: inline-block; margin-top: 1.4rem; font-size: 1.25rem;
+  color: #0ea5e9; text-decoration: none; font-weight: 600;
+}
+.sbh__dd-all:hover { text-decoration: underline; }
+
+/* ── Mobile ──────────────────────────────────────────────────────── */
+@media (max-width: 749px) {
+  .sbh { height: {{ section.settings.height_mobile }}px; }
+  .sbh__menu { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 .8rem; }
+  .sbh__ml { padding: 1rem 1.1rem; font-size: 1.25rem; }
+  .sbh__mi:not(.sbh__mi--has) { margin-left: 0; }
+  .sbh__dd { position: absolute; }
+  .sbh__dd-inner { padding: 1.2rem 1.6rem 1.6rem; }
+  .sbh__dd-grid { grid-template-columns: 1fr 1fr; gap: 0 1.2rem; }
+  .sbh__slide-content { padding: 1.6rem 1.6rem 2.4rem; }
+  .sbh__slide-label { font-size: 1.8rem; }
+}
+{%- endstyle -%}
+
+<div class="sbh">
+  {%- comment -%}── Carousel ──{%- endcomment -%}
+  <div class="sbh__carousel">
+    <shop-by-hero-carousel>
+      <div class="sbh__slides">
+        {%- for block in section.blocks -%}
+          <div class="sbh__slide{%- if forloop.first %} sbh__slide--active{%- endif -%}" data-index="{{ forloop.index0 }}" {{ block.shopify_attributes }}>
+            {%- if block.settings.image != blank -%}
+              {{ block.settings.image | image_url: width: 1600 | image_tag: class: 'sbh__slide-img', loading: 'eager', widths: '800, 1200, 1600', sizes: '100vw' }}
+            {%- else -%}
+              <div class="sbh__slide-placeholder">{{ block.settings.title }}</div>
+            {%- endif -%}
+            {%- if block.settings.title != blank or block.settings.subtitle != blank -%}
+              <div class="sbh__slide-content">
+                {%- if block.settings.title != blank -%}<p class="sbh__slide-label">{{ block.settings.title }}</p>{%- endif -%}
+                {%- if block.settings.subtitle != blank -%}<p class="sbh__slide-sub">{{ block.settings.subtitle }}</p>{%- endif -%}
+                {%- if block.settings.link != blank -%}
+                  <a class="sbh__slide-btn" href="{{ block.settings.link }}">{{ block.settings.cta_label | default: 'Shop now' }}</a>
+                {%- endif -%}
+              </div>
+            {%- endif -%}
+          </div>
+        {%- endfor -%}
+      </div>
+      <button class="sbh__prev" aria-label="Previous slide">&#8249;</button>
+      <button class="sbh__next" aria-label="Next slide">&#8250;</button>
+      <div class="sbh__dots" role="tablist">
+        {%- for block in section.blocks -%}
+          <button class="sbh__dot{%- if forloop.first %} sbh__dot--active{%- endif -%}" data-index="{{ forloop.index0 }}" role="tab" aria-label="Slide {{ forloop.index }}"></button>
+        {%- endfor -%}
+      </div>
+    </shop-by-hero-carousel>
+  </div>
+
+  {%- comment -%}── Overlaid horizontal nav ──{%- endcomment -%}
+  <shop-by-hero-nav class="sbh__navbar">
+    <ul class="sbh__menu" role="list">
+      {%- for link in section.settings.menu.links -%}
+        <li class="sbh__mi{%- if link.links != blank %} sbh__mi--has{%- endif -%}">
+          <a class="sbh__ml" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>
+            {{- link.title -}}
+            {%- if link.links != blank -%}<span class="sbh__caret" aria-hidden="true">&#9662;</span>{%- endif -%}
+          </a>
+          {%- if link.links != blank -%}
+            <div class="sbh__dd">
+              <div class="sbh__dd-inner">
+                <p class="sbh__dd-head">{{ link.title }}</p>
+                <div class="sbh__dd-grid">
+                  {%- for child in link.links -%}
+                    <a class="sbh__dd-link" href="{{ child.url }}"{% if child.current %} aria-current="page"{% endif %}>{{ child.title }}</a>
+                  {%- endfor -%}
+                </div>
+                <a class="sbh__dd-all" href="{{ link.url }}">View all {{ link.title | downcase }} &#8250;</a>
+              </div>
+            </div>
+          {%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ul>
+  </shop-by-hero-nav>
+</div>
+
+<script>
+  (function () {
+    /* ── Nav: hover (desktop) + tap (touch) to open the dropdown ── */
+    if (!customElements.get('shop-by-hero-nav')) {
+      class ShopByHeroNav extends HTMLElement {
+        connectedCallback() {
+          this.items = Array.from(this.querySelectorAll('.sbh__mi--has'));
+          const isTouch = window.matchMedia('(hover: none)').matches;
+          this.items.forEach(item => {
+            if (isTouch) {
+              item.querySelector('.sbh__ml').addEventListener('click', e => {
+                e.preventDefault();
+                const open = item.classList.contains('sbh__mi--open');
+                this._closeAll();
+                if (!open) item.classList.add('sbh__mi--open');
+              });
+            } else {
+              item.addEventListener('mouseenter', () => { this._closeAll(); item.classList.add('sbh__mi--open'); });
+            }
+          });
+          if (!isTouch) this.addEventListener('mouseleave', () => this._closeAll());
+          document.addEventListener('click', e => { if (!this.contains(e.target)) this._closeAll(); });
+        }
+        _closeAll() { this.items.forEach(i => i.classList.remove('sbh__mi--open')); }
+      }
+      customElements.define('shop-by-hero-nav', ShopByHeroNav);
+    }
+
+    /* ── Carousel ── */
+    if (!customElements.get('shop-by-hero-carousel')) {
+      class ShopByHeroCarousel extends HTMLElement {
+        connectedCallback() {
+          this.slides  = Array.from(this.querySelectorAll('.sbh__slide'));
+          this.dots    = Array.from(this.querySelectorAll('.sbh__dot'));
+          this.current = 0;
+          this.total   = this.slides.length;
+          if (this.total < 2) return;
+          this.querySelector('.sbh__prev').addEventListener('click', () => this._go(this.current - 1));
+          this.querySelector('.sbh__next').addEventListener('click', () => this._go(this.current + 1));
+          this.dots.forEach((d, i) => d.addEventListener('click', () => this._go(i)));
+          this._startTimer();
+          this.addEventListener('mouseenter', () => clearInterval(this._timer));
+          this.addEventListener('mouseleave', () => this._startTimer());
+        }
+        _startTimer() { this._timer = setInterval(() => this._go(this.current + 1), 5000); }
+        _go(index) {
+          this.slides[this.current].classList.remove('sbh__slide--active');
+          this.dots[this.current]?.classList.remove('sbh__dot--active');
+          this.current = (index + this.total) % this.total;
+          this.slides[this.current].classList.add('sbh__slide--active');
+          this.dots[this.current]?.classList.add('sbh__dot--active');
+        }
+      }
+      customElements.define('shop-by-hero-carousel', ShopByHeroCarousel);
+    }
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Shop By Hero",
+  "tag": "div",
+  "settings": [
+    { "type": "link_list", "id": "menu", "default": "main-menu", "label": "Navigation menu" },
+    { "type": "range", "id": "height_desktop", "label": "Height — desktop (px)", "min": 400, "max": 900, "step": 20, "default": 580 },
+    { "type": "range", "id": "height_mobile", "label": "Height — mobile (px)", "min": 240, "max": 600, "step": 20, "default": 380 }
+  ],
+  "blocks": [
+    {
+      "type": "slide",
+      "name": "Carousel slide",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Image" },
+        { "type": "text", "id": "title", "label": "Category title", "default": "Shop Now" },
+        { "type": "text", "id": "subtitle", "label": "Subtitle" },
+        { "type": "url", "id": "link", "label": "Link to collection" },
+        { "type": "text", "id": "cta_label", "label": "Button label", "default": "Shop now" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Shop By Hero",
+      "blocks": [
+        { "type": "slide", "settings": { "title": "Monitors", "subtitle": "Crystal-clear displays for every workspace", "link": "/collections/monitors-displays", "cta_label": "Shop monitors" } },
+        { "type": "slide", "settings": { "title": "Laptops & Desktops", "subtitle": "Business machines for every workload", "link": "/collections/laptops-desktops-servers", "cta_label": "Shop computers" } },
+        { "type": "slide", "settings": { "title": "Networking", "subtitle": "Switches, routers, and Wi-Fi for the enterprise", "link": "/collections/networking", "cta_label": "Shop networking" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

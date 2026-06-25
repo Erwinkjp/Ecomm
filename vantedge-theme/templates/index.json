@@ -1,0 +1,379 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "shop_by_hero": {
+      "type": "shop-by-hero",
+      "blocks": {
+        "slide_monitors": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/the-best-monitors-for-2026_u9xw.jpg",
+            "title": "Monitors",
+            "subtitle": "Crystal-clear displays for every workspace",
+            "link": "/collections/monitors",
+            "cta_label": "Shop monitors"
+          }
+        },
+        "slide_mobile": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/tablet-on-wooden-desk.jpg",
+            "title": "Tablets",
+            "subtitle": "Business tablets for every workload",
+            "link": "/collections/tablets",
+            "cta_label": "Shop tablets"
+          }
+        },
+        "slide_gaming": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/game-console-controller-illuminated.jpg",
+            "title": "Gaming",
+            "subtitle": "High-performance gaming gear",
+            "link": "/collections/gaming",
+            "cta_label": "Shop gaming"
+          }
+        },
+        "slide_laptops": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/laptop-glowing-in-the-dark.jpg",
+            "title": "Laptops",
+            "subtitle": "Notebooks for every budget and workload",
+            "link": "/collections/laptops",
+            "cta_label": "Shop laptops"
+          }
+        },
+        "slide_accessories": {
+          "type": "slide",
+          "settings": {
+            "image": "shopify://shop_images/desk-set-up-on-sunny-morning.jpg",
+            "title": "Computer Accessories",
+            "subtitle": "Keyboards, mice, docks, and more",
+            "link": "/collections/computer-accessories",
+            "cta_label": "Shop accessories"
+          }
+        }
+      },
+      "block_order": [
+        "slide_monitors",
+        "slide_mobile",
+        "slide_gaming",
+        "slide_laptops",
+        "slide_accessories"
+      ],
+      "settings": {
+        "menu": "main-menu",
+        "height_desktop": 580,
+        "height_mobile": 380
+      }
+    },
+    "brand_carousel": {
+      "type": "brand-carousel",
+      "blocks": {
+        "brand-asus": {
+          "type": "brand",
+          "settings": {
+            "brand_name": "ASUS",
+            "link": "/collections/asus"
+          }
+        },
+        "brand-dell": {
+          "type": "brand",
+          "settings": {
+            "brand_name": "Dell",
+            "link": "/collections/dell"
+          }
+        },
+        "brand-lenovo": {
+          "type": "brand",
+          "settings": {
+            "brand_name": "Lenovo",
+            "link": "/collections/lenovo"
+          }
+        },
+        "brand-apple": {
+          "type": "brand",
+          "settings": {
+            "brand_name": "Apple",
+            "link": "/collections/apple"
+          }
+        },
+        "brand-logitech": {
+          "type": "brand",
+          "settings": {
+            "brand_name": "Logitech",
+            "link": "/collections/logitech"
+          }
+        },
+        "brand-acer": {
+          "type": "brand",
+          "settings": {
+            "brand_name": "Acer",
+            "link": "/collections/acer"
+          }
+        }
+      },
+      "block_order": [
+        "brand-asus",
+        "brand-dell",
+        "brand-lenovo",
+        "brand-apple",
+        "brand-logitech",
+        "brand-acer"
+      ],
+      "settings": {
+        "title": "Trusted brands",
+        "heading_size": "h2",
+        "color_scheme": "scheme-1",
+        "show_all_link": false,
+        "all_link": "",
+        "all_link_label": "Browse all brands",
+        "padding_top": 48,
+        "padding_bottom": 48
+      }
+    },
+    "featured_picks": {
+      "type": "featured-collection",
+      "settings": {
+        "collection": "laptops-desktops-servers",
+        "products_to_show": 8,
+        "title": "Featured picks",
+        "heading_size": "h2",
+        "description": "",
+        "show_description": false,
+        "description_style": "body",
+        "columns_desktop": 4,
+        "enable_desktop_slider": false,
+        "full_width": false,
+        "show_view_all": true,
+        "view_all_style": "solid",
+        "color_scheme": "scheme-1",
+        "image_ratio": "adapt",
+        "image_shape": "default",
+        "show_secondary_image": false,
+        "show_vendor": true,
+        "show_rating": false,
+        "quick_add": "none",
+        "columns_mobile": "2",
+        "swipe_on_mobile": true,
+        "padding_top": 48,
+        "padding_bottom": 28
+      }
+    },
+    "featured_laptops": {
+      "type": "featured-collection",
+      "settings": {
+        "collection": "notebooks",
+        "products_to_show": 4,
+        "title": "Laptops",
+        "heading_size": "h2",
+        "description": "",
+        "show_description": false,
+        "description_style": "body",
+        "columns_desktop": 4,
+        "enable_desktop_slider": false,
+        "full_width": false,
+        "show_view_all": true,
+        "view_all_style": "solid",
+        "color_scheme": "scheme-1",
+        "image_ratio": "adapt",
+        "image_shape": "default",
+        "show_secondary_image": false,
+        "show_vendor": true,
+        "show_rating": false,
+        "quick_add": "none",
+        "columns_mobile": "2",
+        "swipe_on_mobile": true,
+        "padding_top": 36,
+        "padding_bottom": 28
+      }
+    },
+    "featured_accessories": {
+      "type": "featured-collection",
+      "settings": {
+        "collection": "keyboards-mice",
+        "products_to_show": 4,
+        "title": "Mice & Keyboards",
+        "heading_size": "h2",
+        "description": "",
+        "show_description": false,
+        "description_style": "body",
+        "columns_desktop": 4,
+        "enable_desktop_slider": false,
+        "full_width": false,
+        "show_view_all": true,
+        "view_all_style": "solid",
+        "color_scheme": "scheme-2",
+        "image_ratio": "adapt",
+        "image_shape": "default",
+        "show_secondary_image": false,
+        "show_vendor": true,
+        "show_rating": false,
+        "quick_add": "none",
+        "columns_mobile": "2",
+        "swipe_on_mobile": true,
+        "padding_top": 36,
+        "padding_bottom": 36
+      }
+    },
+    "category_list": {
+      "type": "collection-list",
+      "blocks": {
+        "laptops": {
+          "type": "featured_collection",
+          "settings": {
+            "collection": "laptops"
+          }
+        },
+        "mice": {
+          "type": "featured_collection",
+          "settings": {
+            "collection": "mice"
+          }
+        },
+        "keyboards": {
+          "type": "featured_collection",
+          "settings": {
+            "collection": "keyboards"
+          }
+        },
+        "webcams": {
+          "type": "featured_collection",
+          "settings": {
+            "collection": "networking-communication"
+          }
+        },
+        "monitors": {
+          "type": "featured_collection",
+          "settings": {
+            "collection": "monitors"
+          }
+        }
+      },
+      "block_order": [
+        "laptops",
+        "mice",
+        "keyboards",
+        "webcams",
+        "monitors"
+      ],
+      "settings": {
+        "title": "Shop by category",
+        "heading_size": "h2",
+        "image_ratio": "square",
+        "columns_desktop": 5,
+        "color_scheme": "scheme-1",
+        "show_view_all": false,
+        "columns_mobile": "2",
+        "swipe_on_mobile": true,
+        "padding_top": 36,
+        "padding_bottom": 36
+      }
+    },
+    "value_props": {
+      "type": "multicolumn",
+      "blocks": {
+        "column1": {
+          "type": "column",
+          "settings": {
+            "title": "Business pricing",
+            "text": "<p>Competitive rates on bulk orders. Contact us for a custom quote on 10+ units.</p>",
+            "link_label": "Request a quote",
+            "link": "/pages/contact"
+          }
+        },
+        "column2": {
+          "type": "column",
+          "settings": {
+            "title": "Fast fulfilment",
+            "text": "<p>In-stock items ship within 1–2 business days from our Australian warehouse.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column3": {
+          "type": "column",
+          "settings": {
+            "title": "Hassle-free returns",
+            "text": "<p>30-day return policy on all products. <a href=\"/pages/returns\">See our return policy.</a></p>",
+            "link_label": "Return policy",
+            "link": "/pages/returns"
+          }
+        }
+      },
+      "block_order": [
+        "column1",
+        "column2",
+        "column3"
+      ],
+      "settings": {
+        "title": "",
+        "heading_size": "h1",
+        "image_width": "third",
+        "image_ratio": "adapt",
+        "button_label": "",
+        "button_link": "",
+        "columns_desktop": 3,
+        "column_alignment": "center",
+        "background_style": "primary",
+        "color_scheme": "scheme-2",
+        "columns_mobile": "1",
+        "swipe_on_mobile": false,
+        "padding_top": 48,
+        "padding_bottom": 48
+      }
+    },
+    "newsletter": {
+      "type": "newsletter",
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "heading": "Stay in the loop",
+            "heading_size": "h2"
+          }
+        },
+        "paragraph": {
+          "type": "paragraph",
+          "settings": {
+            "text": "<p>Be the first to know about new collections and exclusive offers.</p>"
+          }
+        },
+        "email_form": {
+          "type": "email_form",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "heading",
+        "paragraph",
+        "email_form"
+      ],
+      "settings": {
+        "color_scheme": "scheme-2",
+        "full_width": true,
+        "padding_top": 40,
+        "padding_bottom": 52
+      }
+    }
+  },
+  "order": [
+    "shop_by_hero",
+    "brand_carousel",
+    "featured_picks",
+    "featured_laptops",
+    "featured_accessories",
+    "category_list",
+    "value_props",
+    "newsletter"
+  ]
+}

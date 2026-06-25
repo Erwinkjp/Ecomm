@@ -1,0 +1,154 @@
+{% comment %}
+  Vantedge Hero — dark gradient tech hero, no image required.
+  Features: animated accent line, dot-grid overlay, gradient heading,
+  dual CTA buttons, and optional trust badges.
+{% endcomment %}
+
+{{ 'section-vantedge-hero.css' | asset_url | stylesheet_tag }}
+
+{%- style -%}
+  .section-{{ section.id }} {
+    --hero-height: {{ section.settings.height_desktop }}px;
+    --hero-height-mobile: {{ section.settings.height_mobile }}px;
+  }
+{%- endstyle -%}
+
+<div class="vantedge-hero section-{{ section.id }}">
+  <div class="vantedge-hero__bg"></div>
+  <div class="vantedge-hero__grid"></div>
+  <div class="vantedge-hero__accent"></div>
+
+  <div class="vantedge-hero__content">
+
+    {%- if section.settings.eyebrow != blank -%}
+      <div class="vantedge-hero__eyebrow">{{ section.settings.eyebrow }}</div>
+    {%- endif -%}
+
+    <h1 class="vantedge-hero__heading">
+      {{ section.settings.heading_plain }}
+      {%- if section.settings.heading_highlight != blank -%}
+        <br><span>{{ section.settings.heading_highlight }}</span>
+      {%- endif -%}
+    </h1>
+
+    {%- if section.settings.subtext != blank -%}
+      <p class="vantedge-hero__subtext">{{ section.settings.subtext }}</p>
+    {%- endif -%}
+
+    <div class="vantedge-hero__buttons">
+      {%- if section.settings.btn1_label != blank -%}
+        <a href="{{ section.settings.btn1_link | default: '/collections/all-products' }}" class="vantedge-hero__btn vantedge-hero__btn--primary">
+          {{ section.settings.btn1_label }}
+        </a>
+      {%- endif -%}
+      {%- if section.settings.btn2_label != blank -%}
+        <a href="{{ section.settings.btn2_link | default: '/collections/laptops' }}" class="vantedge-hero__btn vantedge-hero__btn--secondary">
+          {{ section.settings.btn2_label }}
+        </a>
+      {%- endif -%}
+    </div>
+
+    {%- if section.settings.show_badges -%}
+      <div class="vantedge-hero__badges">
+        <div class="vantedge-hero__badge">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Business pricing available
+        </div>
+        <div class="vantedge-hero__badge">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          9,000+ products in stock
+        </div>
+        <div class="vantedge-hero__badge">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          30-day returns
+        </div>
+      </div>
+    {%- endif -%}
+
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Uniwide hero",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow label",
+      "default": "Business tech, simplified"
+    },
+    {
+      "type": "text",
+      "id": "heading_plain",
+      "label": "Heading (plain)",
+      "default": "Tech Built for"
+    },
+    {
+      "type": "text",
+      "id": "heading_highlight",
+      "label": "Heading (gradient highlight)",
+      "default": "Your Business"
+    },
+    {
+      "type": "textarea",
+      "id": "subtext",
+      "label": "Subtext",
+      "default": "Laptops, peripherals, and accessories from brands your team trusts — competitively priced for businesses of all sizes."
+    },
+    {
+      "type": "text",
+      "id": "btn1_label",
+      "label": "Primary button label",
+      "default": "Shop all products"
+    },
+    {
+      "type": "url",
+      "id": "btn1_link",
+      "label": "Primary button link"
+    },
+    {
+      "type": "text",
+      "id": "btn2_label",
+      "label": "Secondary button label",
+      "default": "View laptops"
+    },
+    {
+      "type": "url",
+      "id": "btn2_link",
+      "label": "Secondary button link"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_badges",
+      "label": "Show trust badges",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "height_desktop",
+      "label": "Height (desktop)",
+      "min": 400,
+      "max": 900,
+      "step": 20,
+      "unit": "px",
+      "default": 620
+    },
+    {
+      "type": "range",
+      "id": "height_mobile",
+      "label": "Height (mobile)",
+      "min": 300,
+      "max": 700,
+      "step": 20,
+      "unit": "px",
+      "default": 500
+    }
+  ],
+  "presets": [
+    { "name": "Uniwide hero" }
+  ]
+}
+{% endschema %}

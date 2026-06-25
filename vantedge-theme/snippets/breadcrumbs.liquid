@@ -1,0 +1,80 @@
+<style>
+  .breadcrumbs {
+    margin-bottom: 1.6rem;
+  }
+  .breadcrumbs__list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 0.2rem;
+    font-size: 1.3rem;
+  }
+  .breadcrumbs__item {
+    display: flex;
+    align-items: center;
+  }
+  .breadcrumbs__sep {
+    color: rgba(var(--color-foreground), 0.4);
+    margin: 0 0.4rem;
+  }
+  .breadcrumbs__link {
+    color: rgb(var(--color-link));
+    text-decoration: none;
+  }
+  .breadcrumbs__link:hover {
+    text-decoration: underline;
+  }
+  .breadcrumbs__current {
+    color: rgba(var(--color-foreground), 0.65);
+  }
+</style>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <ol class="breadcrumbs__list" id="breadcrumbs-list">
+    <li class="breadcrumbs__item">
+      <a href="/" class="breadcrumbs__link">Home</a>
+    </li>
+    {%- comment -%}Intermediate crumbs injected by JS below{%- endcomment -%}
+    <li class="breadcrumbs__item">
+      <span class="breadcrumbs__sep" aria-hidden="true">/</span>
+      <span class="breadcrumbs__current">{{ product.title | escape }}</span>
+    </li>
+  </ol>
+</nav>
+
+<script>
+  (function () {
+    var stored = sessionStorage.getItem('breadcrumb_collection');
+    if (!stored) return;
+    try {
+      var crumb = JSON.parse(stored);
+      var list = document.getElementById('breadcrumbs-list');
+      var productItem = list.querySelector('.breadcrumbs__item:last-child');
+
+      function makeItem(title, url) {
+        var li = document.createElement('li');
+        li.className = 'breadcrumbs__item';
+        li.innerHTML =
+          '<span class="breadcrumbs__sep" aria-hidden="true">/</span>' +
+          '<a href="' + url + '" class="breadcrumbs__link">' + title + '</a>';
+        return li;
+      }
+
+      // Support both formats: {parent, child} and legacy {title, url}
+      var levels = [];
+      if (crumb.child) {
+        if (crumb.parent) levels.push(crumb.parent);
+        levels.push(crumb.child);
+      } else if (crumb.title) {
+        levels.push({ title: crumb.title, url: crumb.url });
+      }
+
+      levels.forEach(function (level) {
+        list.insertBefore(makeItem(level.title, level.url), productItem);
+      });
+    } catch (e) {}
+  })();
+</script>

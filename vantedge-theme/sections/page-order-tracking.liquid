@@ -1,0 +1,192 @@
+{% comment %}
+  Order Tracking page.
+  - Logged-in customers → shows all their orders with status + tracking link.
+  - Guest customers → shows a lookup form (redirects to /account/login then back here,
+    or uses Shopify's native order status URL if they have the lookup token).
+
+  Attach via templates/page.order-tracking.json.
+{% endcomment %}
+
+{{ 'customer.css' | asset_url | stylesheet_tag }}
+{{ 'section-main-page.css' | asset_url | stylesheet_tag }}
+{{ 'component-form.css' | asset_url | stylesheet_tag }}
+
+{%- style -%}
+  .section-{{ section.id }}-padding {
+    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
+  }
+  @media screen and (min-width: 750px) {
+    .section-{{ section.id }}-padding {
+      padding-top: {{ section.settings.padding_top }}px;
+      padding-bottom: {{ section.settings.padding_bottom }}px;
+    }
+  }
+  .order-tracking__intro {
+    max-width: 60rem;
+    margin: 0 auto 3.2rem;
+    text-align: center;
+  }
+  .order-tracking__form {
+    max-width: 48rem;
+    margin: 0 auto;
+    background: rgba(var(--color-foreground), 0.03);
+    border: 1px solid rgba(var(--color-foreground), 0.08);
+    border-radius: 1.2rem;
+    padding: 3.2rem;
+  }
+  .order-list { margin-top: 3.2rem; }
+  .order-card {
+    border: 1px solid rgba(var(--color-foreground), 0.1);
+    border-radius: 1rem;
+    padding: 2rem 2.4rem;
+    margin-bottom: 1.6rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.8rem 2.4rem;
+    align-items: center;
+  }
+  .order-card__name { font-weight: 700; font-size: 1.6rem; }
+  .order-card__date { font-size: 1.3rem; color: rgba(var(--color-foreground), 0.6); }
+  .order-card__total { font-weight: 600; font-size: 1.5rem; text-align: right; }
+  .order-card__status {
+    display: inline-block;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0.3rem 0.9rem;
+    border-radius: 2rem;
+    background: rgba(var(--color-foreground), 0.07);
+    text-transform: capitalize;
+  }
+  .order-card__status--fulfilled { background: #d1fae5; color: #065f46; }
+  .order-card__status--unfulfilled { background: #fef3c7; color: #92400e; }
+  .order-card__status--cancelled { background: #fee2e2; color: #991b1b; }
+  .order-card__link { text-align: right; }
+  .order-card__link a {
+    font-size: 1.3rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+{%- endstyle -%}
+
+<div class="page-width section-{{ section.id }}-padding">
+  <div class="order-tracking__intro">
+    <h1 class="main-page-title page-title h1">Track your order</h1>
+    <p>Log in to see all your orders, or enter your order details below to check your status.</p>
+  </div>
+
+  {%- if customer -%}
+    <!-- ── Logged-in view ──────────────────────────────────────────── -->
+    <div class="order-list">
+      {%- if customer.orders.size == 0 -%}
+        <p style="text-align:center;color:rgba(var(--color-foreground),0.6);">You haven't placed any orders yet.</p>
+      {%- else -%}
+        {%- for order in customer.orders -%}
+          {%- assign fulfillment_status = order.fulfillment_status | downcase -%}
+          <div class="order-card">
+            <div>
+              <div class="order-card__name">{{ order.name }}</div>
+              <div class="order-card__date">Placed {{ order.created_at | date: '%B %d, %Y' }}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="order-card__total">{{ order.total_price | money }}</div>
+              <span class="order-card__status order-card__status--{{ fulfillment_status }}">
+                {{ order.fulfillment_status_label }}
+              </span>
+            </div>
+            <div>
+              <span style="font-size:1.3rem;color:rgba(var(--color-foreground),0.6);">
+                {{ order.line_items | size }} item{% if order.line_items.size != 1 %}s{% endif %}
+              </span>
+            </div>
+            <div class="order-card__link">
+              <a href="{{ order.customer_url }}">View details →</a>
+            </div>
+          </div>
+        {%- endfor -%}
+      {%- endif -%}
+    </div>
+
+  {%- else -%}
+    <!-- ── Guest view ──────────────────────────────────────────────── -->
+    <div class="order-tracking__form">
+      <p style="text-align:center;margin-bottom:2rem;font-size:1.4rem;color:rgba(var(--color-foreground),0.7);">
+        Have an account?
+        <a href="{{ routes.account_login_url }}?return_url={{ request.path | url_encode }}" style="font-weight:600;">Log in</a>
+        to see all your orders.
+      </p>
+
+      <hr style="border:none;border-top:1px solid rgba(var(--color-foreground),0.1);margin:2rem 0;">
+      <p style="font-size:1.3rem;color:rgba(var(--color-foreground),0.6);text-align:center;margin-bottom:2rem;">
+        Or look up an order by entering your order number and email below.
+      </p>
+
+      {%- form 'contact', id: 'order-lookup-form' -%}
+        <input type="hidden" name="contact[subject]" value="Order Status Lookup">
+
+        <div class="field">
+          <input
+            class="field__input"
+            type="text"
+            id="order-number"
+            name="contact[Order number]"
+            value="{{ form['Order number'] }}"
+            placeholder="e.g. #1234"
+            required
+          >
+          <label class="field__label" for="order-number">Order number <span aria-hidden="true">*</span></label>
+        </div>
+
+        <div class="field">
+          <input
+            class="field__input"
+            autocomplete="email"
+            type="email"
+            id="order-email"
+            name="contact[email]"
+            value="{{ form.email }}"
+            placeholder="Email used at checkout"
+            required
+          >
+          <label class="field__label" for="order-email">Email address <span aria-hidden="true">*</span></label>
+        </div>
+
+        {%- if form.posted_successfully? -%}
+          <p class="form-status form-status-list form__message" style="color:green;margin-bottom:1.6rem;">
+            ✓ Thanks! We'll email you the latest status on your order within a few minutes.
+          </p>
+        {%- endif -%}
+
+        <button type="submit" class="button button--full-width">Look up order</button>
+      {%- endform -%}
+    </div>
+  {%- endif -%}
+</div>
+
+{% schema %}
+{
+  "name": "Order tracking",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0, "max": 100, "step": 4, "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0, "max": 100, "step": 4, "unit": "px",
+      "default": 60
+    }
+  ],
+  "presets": [
+    { "name": "Order tracking" }
+  ]
+}
+{% endschema %}

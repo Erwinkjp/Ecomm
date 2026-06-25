@@ -1,0 +1,418 @@
+{{ 'b2b-dashboard.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  assign is_b2b = false
+  for tag in customer.tags
+    if tag == 'b2b' or tag == 'B2B'
+      assign is_b2b = true
+    endif
+  endfor
+
+  assign company_name   = customer.metafields.custom.b2b_company_name.value  | default: customer.company | default: customer.name
+  assign account_number = customer.metafields.custom.b2b_account_number.value
+  assign payment_terms  = customer.metafields.custom.b2b_payment_terms.value
+  assign standards      = customer.metafields.custom.b2b_standards.value
+-%}
+
+{%- if is_b2b -%}
+
+<div class="b2b-dashboard">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────────── -->
+  <header class="b2b-header">
+    <div class="b2b-header__left">
+      <div class="b2b-header__greeting">Welcome back</div>
+      <h1 class="b2b-header__company">{{ company_name }}</h1>
+      <div class="b2b-header__meta">
+        {%- if account_number != blank -%}
+          <span class="b2b-header__account">Account #{{ account_number }}</span>
+        {%- endif -%}
+        <span class="b2b-badge b2b-badge--b2b">B2B</span>
+        {%- if payment_terms != blank -%}
+          <span class="b2b-badge b2b-badge--terms">{{ payment_terms }}</span>
+        {%- endif -%}
+      </div>
+    </div>
+    <div class="b2b-header__actions">
+      <a href="{{ routes.account_logout_url }}" class="b2b-header__logout">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Sign Out
+      </a>
+    </div>
+  </header>
+
+  <!-- ── Tabs ───────────────────────────────────────────────────────────────── -->
+  <div class="b2b-tabs" role="tablist">
+    <button class="b2b-tab active" data-tab="standards" role="tab" aria-selected="true">
+      Company Standards
+      {%- if standards and standards.size > 0 -%}
+        <span class="b2b-tab__count">{{ standards.size }}</span>
+      {%- endif -%}
+    </button>
+    <button class="b2b-tab" data-tab="orders" role="tab" aria-selected="false">
+      Order History
+      {%- if customer.orders_count > 0 -%}
+        <span class="b2b-tab__count">{{ customer.orders_count }}</span>
+      {%- endif -%}
+    </button>
+    <button class="b2b-tab" data-tab="account" role="tab" aria-selected="false">
+      Account Info
+    </button>
+  </div>
+
+  <!-- ── Standards panel ────────────────────────────────────────────────────── -->
+  <div class="b2b-panel active" data-panel="standards" role="tabpanel">
+
+    {%- if standards and standards.size > 0 -%}
+
+      {%- comment -%} Build unique category list for filter chips {%- endcomment -%}
+      {%- assign chip_cats = '' -%}
+      {%- for p in standards -%}
+        {%- assign cat_lower = p.type | downcase -%}
+        {%- unless chip_cats contains cat_lower -%}
+          {%- assign chip_cats = chip_cats | append: cat_lower | append: '|' -%}
+        {%- endunless -%}
+      {%- endfor -%}
+      {%- assign chip_array = chip_cats | split: '|' -%}
+
+      <div class="b2b-toolbar">
+        <div class="b2b-search">
+          <svg class="b2b-search__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="search"
+            id="b2b-standards-search"
+            class="b2b-search__input"
+            placeholder="Search standards…"
+            autocomplete="off"
+            aria-label="Search company standards"
+          >
+        </div>
+
+        <div class="b2b-filter-chips" role="group" aria-label="Filter by category">
+          <button class="b2b-chip active" data-filter="all">All</button>
+          {%- for cat in chip_array -%}
+            {%- if cat != blank -%}
+              <button class="b2b-chip" data-filter="{{ cat | escape }}">{{ cat | capitalize }}</button>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+
+        <button id="b2b-add-all" class="b2b-btn b2b-btn--outline" style="margin-left:auto;white-space:nowrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 0 1-8 0"/>
+          </svg>
+          Add All to Cart
+        </button>
+      </div>
+
+      <div class="b2b-standards-grid">
+        {%- for product in standards -%}
+          {%- render 'b2b-product-card', product: product -%}
+        {%- endfor -%}
+      </div>
+
+      <div id="b2b-standards-empty" class="b2b-empty" style="display:none" aria-live="polite">
+        <svg class="b2b-empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <p class="b2b-empty__title">No results found</p>
+        <p class="b2b-empty__body">Try a different search term or category.</p>
+      </div>
+
+    {%- else -%}
+
+      <div class="b2b-empty">
+        <svg class="b2b-empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        <p class="b2b-empty__title">No standards configured yet</p>
+        <p class="b2b-empty__body">Your account manager will set up your Company Standards soon. In the meantime, browse the full catalog.</p>
+        <a href="/collections/all-products" class="b2b-btn b2b-btn--primary" style="margin-top:1.5rem">Browse Catalog</a>
+      </div>
+
+    {%- endif -%}
+  </div>
+
+  <!-- ── Orders panel ───────────────────────────────────────────────────────── -->
+  <div class="b2b-panel" data-panel="orders" role="tabpanel">
+
+    {%- if customer.orders.size > 0 -%}
+      {% paginate customer.orders by 20 %}
+        <div style="overflow-x:auto">
+          <table class="b2b-orders-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Date</th>
+                <th>Payment</th>
+                <th>Fulfillment</th>
+                <th>Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {%- for order in customer.orders -%}
+                {%- assign pay_status = order.financial_status -%}
+                {%- assign ful_status = order.fulfillment_status | default: 'unfulfilled' -%}
+                <tr>
+                  <td>
+                    <a href="{{ order.customer_url }}">{{ order.name }}</a>
+                  </td>
+                  <td>{{ order.created_at | date: '%b %d, %Y' }}</td>
+                  <td>
+                    <span class="b2b-status b2b-status--{{ pay_status }}">
+                      {{ order.financial_status_label }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="b2b-status b2b-status--{{ ful_status }}">
+                      {{ order.fulfillment_status_label | default: 'Unfulfilled' }}
+                    </span>
+                  </td>
+                  <td>{{ order.total_net_amount | money_with_currency }}</td>
+                  <td>
+                    <a href="{{ order.customer_url }}" class="b2b-btn b2b-btn--outline b2b-btn--sm">View</a>
+                  </td>
+                </tr>
+              {%- endfor -%}
+            </tbody>
+          </table>
+        </div>
+
+        {%- if paginate.pages > 1 -%}
+          <nav style="display:flex;gap:0.5rem;margin-top:1.5rem;justify-content:center" aria-label="Order pagination">
+            {%- if paginate.previous -%}
+              <a href="{{ paginate.previous.url }}" class="b2b-btn b2b-btn--outline b2b-btn--sm">← Previous</a>
+            {%- endif -%}
+            {%- if paginate.next -%}
+              <a href="{{ paginate.next.url }}" class="b2b-btn b2b-btn--outline b2b-btn--sm">Next →</a>
+            {%- endif -%}
+          </nav>
+        {%- endif -%}
+      {% endpaginate %}
+    {%- else -%}
+      <div class="b2b-empty">
+        <svg class="b2b-empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <path d="M16 10a4 4 0 0 1-8 0"/>
+        </svg>
+        <p class="b2b-empty__title">No orders yet</p>
+        <p class="b2b-empty__body">Your order history will appear here after your first purchase.</p>
+      </div>
+    {%- endif -%}
+  </div>
+
+  <!-- ── Account panel ──────────────────────────────────────────────────────── -->
+  <div class="b2b-panel" data-panel="account" role="tabpanel">
+    <div class="b2b-info-grid">
+
+      <div class="b2b-info-card">
+        <div class="b2b-info-card__label">Contact</div>
+        <div class="b2b-info-card__value">
+          {{ customer.name }}<br>
+          {{ customer.email }}
+          {%- if customer.phone != blank -%}<br>{{ customer.phone }}{%- endif -%}
+        </div>
+      </div>
+
+      <div class="b2b-info-card">
+        <div class="b2b-info-card__label">Company</div>
+        <div class="b2b-info-card__value">
+          {{ company_name }}
+          {%- if account_number != blank -%}<br>Account #{{ account_number }}{%- endif -%}
+          {%- if payment_terms != blank -%}<br>Terms: {{ payment_terms }}{%- endif -%}
+        </div>
+      </div>
+
+      {%- if customer.default_address -%}
+        <div class="b2b-info-card">
+          <div class="b2b-info-card__label">Default Shipping Address</div>
+          <div class="b2b-info-card__value">
+            {{ customer.default_address | format_address }}
+          </div>
+          <a href="{{ routes.account_addresses_url }}" class="b2b-info-card__link">
+            Manage addresses ({{ customer.addresses_count }})
+          </a>
+        </div>
+      {%- endif -%}
+
+      <div class="b2b-info-card">
+        <div class="b2b-info-card__label">Quick Links</div>
+        <div class="b2b-info-card__value" style="display:flex;flex-direction:column;gap:0.5rem">
+          <a href="{{ routes.account_addresses_url }}" class="b2b-info-card__link" style="margin:0">Manage Addresses</a>
+          <a href="/collections/all-products" class="b2b-info-card__link" style="margin:0">Browse Catalog</a>
+          <a href="/cart" class="b2b-info-card__link" style="margin:0">View Cart</a>
+          <a href="/pages/contact" class="b2b-info-card__link" style="margin:0">Contact Your Rep</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div id="b2b-toast" class="b2b-toast" role="alert" aria-live="polite"></div>
+
+{{ 'b2b-dashboard.js' | asset_url | script_tag }}
+
+{%- else -%}
+
+<!-- ── Standard (non-B2B) account fallback ──────────────────────────────────── -->
+{{ 'customer.css' | asset_url | stylesheet_tag }}
+
+{%- style -%}
+  .section-{{ section.id }}-padding {
+    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
+  }
+  @media screen and (min-width: 750px) {
+    .section-{{ section.id }}-padding {
+      padding-top: {{ section.settings.padding_top }}px;
+      padding-bottom: {{ section.settings.padding_bottom }}px;
+    }
+  }
+{%- endstyle -%}
+
+<div class="customer account section-{{ section.id }}-padding">
+  <div>
+    <h1 class="customer__title">{{ 'customer.account.title' | t }}</h1>
+    <a href="{{ routes.account_logout_url }}">
+      <span class="svg-wrapper">{{- 'icon-account.svg' | inline_asset_content -}}</span>
+      {{ 'customer.log_out' | t }}
+    </a>
+  </div>
+
+  <div>
+    <div>
+      <h2>{{ 'customer.orders.title' | t }}</h2>
+      {% paginate customer.orders by 20 %}
+        {%- if customer.orders.size > 0 -%}
+          <table role="table" class="order-history">
+            <caption class="visually-hidden">{{ 'customer.orders.title' | t }}</caption>
+            <thead role="rowgroup">
+              <tr role="row">
+                <th id="ColumnOrder" scope="col" role="columnheader">{{ 'customer.orders.order_number' | t }}</th>
+                <th id="ColumnDate" scope="col" role="columnheader">{{ 'customer.orders.date' | t }}</th>
+                <th id="ColumnPayment" scope="col" role="columnheader">{{ 'customer.orders.payment_status' | t }}</th>
+                <th id="ColumnFulfillment" scope="col" role="columnheader">{{ 'customer.orders.fulfillment_status' | t }}</th>
+                <th id="ColumnTotal" scope="col" role="columnheader">{{ 'customer.orders.total' | t }}</th>
+              </tr>
+            </thead>
+            <tbody role="rowgroup">
+              {%- for order in customer.orders -%}
+                <tr role="row">
+                  <td id="RowOrder" role="cell" headers="ColumnOrder" data-label="{{ 'customer.orders.order_number' | t }}">
+                    <a href="{{ order.customer_url }}" aria-label="{{ 'customer.orders.order_number_link' | t: number: order.name }}">{{ order.name }}</a>
+                  </td>
+                  <td headers="RowOrder ColumnDate" role="cell" data-label="{{ 'customer.orders.date' | t }}">
+                    {{ order.created_at | time_tag: format: 'date' }}
+                  </td>
+                  <td headers="RowOrder ColumnPayment" role="cell" data-label="{{ 'customer.orders.payment_status' | t }}">
+                    {{ order.financial_status_label }}
+                  </td>
+                  <td headers="RowOrder ColumnFulfillment" role="cell" data-label="{{ 'customer.orders.fulfillment_status' | t }}">
+                    {{ order.fulfillment_status_label }}
+                  </td>
+                  <td headers="RowOrder ColumnTotal" role="cell" data-label="{{ 'customer.orders.total' | t }}">
+                    {{ order.total_net_amount | money_with_currency }}
+                  </td>
+                </tr>
+              {%- endfor -%}
+            </tbody>
+          </table>
+        {%- else -%}
+          <p>{{ 'customer.orders.none' | t }}</p>
+        {%- endif -%}
+        {%- if paginate.pages > 1 -%}
+          {%- if paginate.parts.size > 0 -%}
+            <nav class="pagination" role="navigation" aria-label="{{ 'general.pagination.label' | t }}">
+              <ul role="list">
+                {%- if paginate.previous -%}
+                  <li>
+                    <a href="{{ paginate.previous.url }}" aria-label="{{ 'general.pagination.previous' | t }}">
+                      <span class="svg-wrapper">{{- 'icon-caret.svg' | inline_asset_content -}}</span>
+                    </a>
+                  </li>
+                {%- endif -%}
+                {%- for part in paginate.parts -%}
+                  <li>
+                    {%- if part.is_link -%}
+                      <a href="{{ part.url }}" aria-label="{{ 'general.pagination.page' | t: number: part.title }}">{{ part.title }}</a>
+                    {%- else -%}
+                      {%- if part.title == paginate.current_page -%}
+                        <span aria-current="page" aria-label="{{ 'general.pagination.page' | t: number: part.title }}">{{ part.title }}</span>
+                      {%- else -%}
+                        <span>{{ part.title }}</span>
+                      {%- endif -%}
+                    {%- endif -%}
+                  </li>
+                {%- endfor -%}
+                {%- if paginate.next -%}
+                  <li>
+                    <a href="{{ paginate.next.url }}" aria-label="{{ 'general.pagination.next' | t }}">
+                      <span class="svg-wrapper">{{- 'icon-caret.svg' | inline_asset_content -}}</span>
+                    </a>
+                  </li>
+                {%- endif -%}
+              </ul>
+            </nav>
+          {%- endif -%}
+        {%- endif -%}
+      {% endpaginate %}
+    </div>
+
+    <div>
+      <h2>{{ 'customer.account.details' | t }}</h2>
+      {{ customer.default_address | format_address }}
+      <a href="{{ routes.account_addresses_url }}">
+        {{ 'customer.account.view_addresses' | t }} ({{ customer.addresses_count }})
+      </a>
+    </div>
+  </div>
+</div>
+
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "t:sections.main-account.name",
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:sections.all.padding.section_padding_heading"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "t:sections.all.padding.padding_top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "t:sections.all.padding.padding_bottom",
+      "default": 36
+    }
+  ]
+}
+{% endschema %}
