@@ -50,6 +50,7 @@ const config = {
       secretArn: getEnv('SYNNEX_SFTP_SECRET_ARN'),
       remotePath: getEnv('SYNNEX_SFTP_REMOTE_PATH'),
       zipEntry: getEnv('SYNNEX_SFTP_ZIP_ENTRY'),
+      cacheBucket: getEnv('SYNNEX_SFTP_CACHE_BUCKET'),
     },
     xml: {
       url: getEnv('SYNNEX_XML_URL', 'https://ec.us.tdsynnex.com/SynnexXML/PriceAvailability'),
@@ -57,7 +58,7 @@ const config = {
       username: getEnv('SYNNEX_XML_USERNAME'),
       password: getEnv('SYNNEX_XML_PASSWORD'),
       requestVersion: getEnv('SYNNEX_XML_REQUEST_VERSION', '2.8'),
-      skuChunkSize: parseIntEnv('SYNNEX_XML_SKU_CHUNK_SIZE', 40),
+      skuChunkSize: parseIntEnv('SYNNEX_XML_SKU_CHUNK_SIZE', 100),
       syncPrices: parseBoolEnv('SYNNEX_XML_SYNC_PRICES', true),
       msrpAsCompareAt: parseBoolEnv('SYNNEX_XML_MSRP_AS_COMPARE_AT', true),
     },
@@ -65,6 +66,10 @@ const config = {
       url: getEnv('SYNNEX_ORDER_URL', 'https://ec.us.tdsynnex.com/SynnexXML/order'),
       statusUrl: getEnv('SYNNEX_ORDER_STATUS_URL', 'https://ec.us.tdsynnex.com/SynnexXML/orderstatus'),
       defaultShipMethod: getEnv('SYNNEX_DEFAULT_SHIP_METHOD', 'FEDX_GRD'),
+      // RMA endpoints — empty until the TD SYNNEX RMA spec is confirmed; the RMA
+      // client stays inert (isRmaConfigured()===false) while these are blank.
+      rmaUrl: getEnv('SYNNEX_RMA_URL', ''),
+      rmaStatusUrl: getEnv('SYNNEX_RMA_STATUS_URL', ''),
     },
   },
   sync: {
@@ -72,10 +77,14 @@ const config = {
     categories: parseListEnv('SYNNEX_SYNC_FILTER_CATEGORIES'),
     allowlist: parseListEnv('SYNNEX_SYNC_ALLOWLIST'),
     limit: parseIntEnv('SYNNEX_SYNC_LIMIT', undefined),
+    concurrency: parseIntEnv('SYNNEX_SYNC_CONCURRENCY', 10),
+    timeoutSeconds: parseIntEnv('SYNNEX_SYNC_TIMEOUT_SECONDS', 510), // stop streaming 90s before Lambda's hard cutoff
     markupPercent: parseFloatEnv('PRICE_MARKUP_PERCENT', 0),
   },
   icecat: {
     username: getEnv('ICECAT_USERNAME'),
+    // Full Icecat content requires an app_key (paid/Full tier). Blank = Open Icecat (free).
+    appKey: getEnv('ICECAT_APP_KEY', ''),
   },
 };
 

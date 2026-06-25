@@ -17,8 +17,17 @@ const SET_QUANTITIES = `
 const UPDATE_VARIANT_PRICE = `
   mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
     productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-      productVariants { id price compareAtPrice }
+      productVariants { id price compareAtPrice inventoryPolicy }
       userErrors { field message }
+    }
+  }
+`;
+
+const SET_METAFIELDS = `
+  mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+    metafieldsSet(metafields: $metafields) {
+      metafields { key value }
+      userErrors { message }
     }
   }
 `;
@@ -48,15 +57,14 @@ async function setInventoryQuantities(quantities) {
 }
 
 /**
- * Update a variant's selling price and optional compare-at (MSRP) price.
+ * Update a variant's selling price, optional compare-at price, and inventory policy.
  *
- * @param {{ productId: string, variantId: string, price: number, compareAtPrice?: number }} options
+ * @param {{ productId: string, variantId: string, price: number, compareAtPrice?: number, inventoryPolicy?: 'CONTINUE'|'DENY' }} options
  */
-async function updateVariantPrice({ productId, variantId, price, compareAtPrice }) {
+async function updateVariantPrice({ productId, variantId, price, compareAtPrice, inventoryPolicy }) {
   const variant = { id: variantId, price: String(price) };
-  if (compareAtPrice != null) {
-    variant.compareAtPrice = String(compareAtPrice);
-  }
+  if (compareAtPrice != null) variant.compareAtPrice = String(compareAtPrice);
+  if (inventoryPolicy) variant.inventoryPolicy = inventoryPolicy;
 
   const data = await graphql(UPDATE_VARIANT_PRICE, { productId, variants: [variant] });
   const { userErrors } = data.productVariantsBulkUpdate;
@@ -65,4 +73,31 @@ async function updateVariantPrice({ productId, variantId, price, compareAtPrice 
   }
 }
 
-module.exports = { setInventoryQuantities, updateVariantPrice };
+/**
+ * Batch-set a custom.lead_time metafield on a list of product GIDs.
+ * Sends up to 25 metafields per API call (Shopify limit).
+ *
+ * @param {string[]} productIds  - Array of Shopify product GIDs
+ * @param {string}   leadTimeText - Text to display, e.g. "Usually ships in 5–7 business days"
+ */
+async function setProductLeadTimes(productIds, leadTimeText) {
+  const metafields = productIds.map(ownerId => ({
+    ownerId,
+    namespace: 'custom',
+    key: 'lead_time',
+    value: leadTimeText,
+    type: 'single_line_text_field',
+  }));
+
+  for (let i = 0; i < metafields.length; i += 25) {
+    const chunk = metafields.slice(i, i + 25);
+    const data = await graphql(SET_METAFIELDS, { metafields: chunk });
+    const { userErrors } = data.metafieldsSet;
+    if (userErrors?.length) {
+      console.warn(`[lead_time metafields] ${userErrors.map(e => e.message).join('; ')}`);
+    }
+    if (i + 25 < metafields.length) await new Promise(r => setTimeout(r, 200));
+  }
+}
+
+module.exports = { setInventoryQuantities, updateVariantPrice, setProductLeadTimes };

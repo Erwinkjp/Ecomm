@@ -1,0 +1,13 @@
+# Claude Code internal artifacts
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+
+# Secrets — never commit any .env
+.env
+**/.env
+
+# vantedge-theme is its own git repo (no remote) — exclude from this repo
+vantedge-theme/

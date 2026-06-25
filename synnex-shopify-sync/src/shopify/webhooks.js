@@ -9,6 +9,7 @@
 
 const crypto = require('crypto');
 const { config } = require('../config');
+const { resolveShipMethod } = require('./shippingRates');
 
 /**
  * Verify that a Shopify webhook request is authentic.
@@ -66,8 +67,39 @@ function parseOrderWebhook(payload) {
       email,
     },
     lineItems,
+    shipMethod: resolveShipMethod(payload.shipping_lines),
     totalPrice: parseFloat(payload.total_price) || 0,
   };
 }
 
-module.exports = { verifyWebhook, parseOrderWebhook };
+/**
+ * Parse a Shopify returns/* webhook payload (returns/request, returns/approve, etc.)
+ * into a normalized return object. The numeric TD SYNNEX synnexSku for each line item
+ * is resolved later (in the submit-rmas job) from the stored order record.
+ *
+ * @param {object} payload - Parsed JSON webhook body (a Return resource)
+ */
+function parseReturnWebhook(payload) {
+  const ret = payload.return || payload; // some topics nest under `return`
+  const gid = (type, id) => (String(id || '').startsWith('gid://') ? String(id) : `gid://shopify/${type}/${id}`);
+
+  const lineItems = (ret.return_line_items || ret.returnLineItems || []).map(li => ({
+    quantity: li.quantity || 1,
+    reason: li.return_reason || li.returnReason || li.reason || 'OTHER',
+    // SKU/fulfillment refs vary by payload; resolved against the order record downstream.
+    sku: li.sku || '',
+    fulfillmentLineItemId: li.fulfillment_line_item_id || li.fulfillmentLineItemId || '',
+    lineItemId: li.line_item_id || li.lineItemId || '',
+  }));
+
+  return {
+    shopifyReturnId:  ret.admin_graphql_api_id || gid('Return', ret.id),
+    shopifyOrderId:   ret.order_id ? gid('Order', ret.order_id) : (ret.order?.admin_graphql_api_id || ''),
+    shopifyReturnName: ret.name || '',
+    status:           ret.status || '',
+    reason:           lineItems[0]?.reason || 'OTHER',
+    lineItems,
+  };
+}
+
+module.exports = { verifyWebhook, parseOrderWebhook, parseReturnWebhook };

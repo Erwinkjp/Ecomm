@@ -229,6 +229,9 @@ function mapApRow(fields) {
   if (!synnexSku && !mfrPartNumber) return null;
 
   const qty = parseFloat(fields[9]) || 0;
+  // [10] = inner pack quantity: how many units TD Synnex ships per pack.
+  // When > 1, the catalog price is per individual unit but customers receive/pay for a full pack.
+  const innerPackQty = Math.max(1, parseInt(fields[10], 10) || 1);
   const price = parseFloat(fields[12]) || 0;
   const msrpVal = parseFloat(fields[13]) || 0;
   const weight = parseFloat(fields[27]) || undefined;
@@ -241,10 +244,12 @@ function mapApRow(fields) {
     manufacturerCode: '',
     category: (fields[35] || '').trim(),
     categoryCode: (fields[8] || '').trim(),
+    unspsc: (fields[34] || '').trim(),   // UNSPSC commodity code — reliable taxonomy signal
     statusCode: status || 'A',
     price: Number.isFinite(price) ? price : 0,
     msrp: msrpVal > 0 && Number.isFinite(msrpVal) ? msrpVal : undefined,
     quantityAvailable: Number.isFinite(qty) ? Math.max(0, qty) : 0,
+    innerPackQty,
     upc: (fields[33] || '').trim(),
     weight: weight && Number.isFinite(weight) ? weight : undefined,
   };

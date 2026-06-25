@@ -45,6 +45,9 @@ async function queryIcecat(params) {
     lang: 'en',
     ...params,
   });
+  // Full Icecat content (gated brands/products) requires an app_key. Send it when set;
+  // without it we get the free Open Icecat subset.
+  if (config.icecat.appKey) qs.set('app_key', config.icecat.appKey);
 
   let resp;
   try {
@@ -74,6 +77,13 @@ async function queryIcecat(params) {
   const data = body?.data;
   if (!data) return null;
 
+  // Extract the canonical product title (e.g. "Apple MacBook Pro 14\" M3 Pro 18GB 1TB Silver")
+  // Icecat puts the full title in GeneralInfo.Title or at the top-level Title field.
+  const title = (data.GeneralInfo?.Title || data.Title || '').trim() || null;
+
+  // Icecat's own clean category (e.g. "Laptops") — a high-precision categorization signal.
+  const category = (data.GeneralInfo?.Category?.Name?.Value || data.GeneralInfo?.Category?.Name || '').toString().trim() || null;
+
   // Extract description (prefer long, fall back to short)
   const longDesc = data.Description?.LongDesc?.trim();
   const shortDesc = data.Description?.ShortDesc?.trim();
@@ -84,11 +94,25 @@ async function queryIcecat(params) {
   const images = gallery
     .map(g => g.PicMax || g.Pic500x500 || g.Pic)
     .filter(Boolean)
-    .slice(0, 10); // Shopify supports up to 250, but 10 is plenty
+    .slice(0, 10);
 
-  if (!description && images.length === 0) return null;
+  // Extract technical specs from FeaturesGroups
+  const specs = (data.FeaturesGroups || [])
+    .map(group => ({
+      group: group.Name?.Value || group.Name || 'General',
+      specs: (group.Features || [])
+        .filter(f => f.PresentationValue && f.PresentationValue !== 'N')
+        .map(f => ({
+          name: f.Feature?.Name?.Value || f.Feature?.Name || '',
+          value: f.PresentationValue,
+        }))
+        .filter(s => s.name),
+    }))
+    .filter(g => g.specs.length > 0);
 
-  return { description, images };
+  if (!title && !description && images.length === 0 && specs.length === 0) return null;
+
+  return { title, description, images, specs, category };
 }
 
 module.exports = { fetchIcecatProduct };

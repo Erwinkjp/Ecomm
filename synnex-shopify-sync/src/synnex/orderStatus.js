@@ -37,7 +37,7 @@ function buildStatusXml(poNumber) {
     <Password>${escapeXml(password)}</Password>
   </Credential>
   <OrderStatusRequest>
-    <CustomerNo>${escapeXml(customerNo)}</CustomerNo>
+    <CustomerNumber>${escapeXml(customerNo)}</CustomerNumber>
     <PONumber>${escapeXml(poNumber)}</PONumber>
   </OrderStatusRequest>
 </SynnexB2B>`;
@@ -77,6 +77,13 @@ async function checkOrderStatus(poNumber) {
   return parseStatusResponse(text, poNumber);
 }
 
+function text(node) {
+  if (node == null) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (typeof node === 'object' && '#text' in node) return String(node['#text']);
+  return '';
+}
+
 function parseStatusResponse(xml, poNumber) {
   const doc = parser.parse(xml);
 
@@ -85,46 +92,50 @@ function parseStatusResponse(xml, poNumber) {
     doc?.OrderStatusResponse ||
     {};
 
-  const synnexOrderId = String(
-    statusResp?.SynnexOrderNo?.['#text'] ||
-    statusResp?.OrderNo?.['#text'] ||
-    statusResp?.SynnexOrderNo ||
-    statusResp?.OrderNo ||
-    ''
+  // Item-level details (tracking, ship date, order number live here)
+  const rawItem = statusResp?.Items?.Item;
+  const firstItem = Array.isArray(rawItem) ? rawItem[0] : (rawItem || {});
+
+  const synnexOrderId = (
+    text(statusResp?.SynnexOrderNo) ||
+    text(statusResp?.OrderNo) ||
+    text(firstItem?.OrderNumber)
   ).trim();
 
-  const statusCode = String(
-    statusResp?.OrderStatus?.['#text'] ||
-    statusResp?.Status?.['#text'] ||
-    statusResp?.OrderStatus ||
-    statusResp?.Status ||
-    ''
-  ).trim().toUpperCase();
+  // Status is in <Code> at the response level; item-level <Code> reflects line status
+  const topCode = text(statusResp?.Code).trim().toLowerCase();
+  const shipDate = text(firstItem?.ShipDatetime).trim();
+  const shipQty  = parseInt(text(firstItem?.ShipQuantity) || '0', 10);
 
-  // Normalize TD Synnex status codes to internal statuses
+  // Determine status: if something has shipped, use item data; otherwise use top-level code
   let status;
-  if (['SHIPPED', 'COMPLETE', 'CLOSED'].includes(statusCode)) {
+  if (shipDate && shipQty > 0) {
     status = 'shipped';
-  } else if (['CANCELLED', 'CANCELED', 'VOID'].includes(statusCode)) {
+  } else if (['cancelled', 'canceled', 'void'].includes(topCode)) {
     status = 'cancelled';
-  } else if (['ACCEPTED', 'PROCESSING', 'OPEN', 'HOLD'].includes(statusCode)) {
-    status = 'processing';
   } else {
-    status = 'processing'; // default to processing if unknown
+    status = 'processing';
   }
 
-  // Extract tracking numbers from packages
-  const packages = statusResp?.Packages?.Package || [];
-  const trackingNumbers = (Array.isArray(packages) ? packages : [packages])
-    .map(p => String(p?.TrackingNo?.['#text'] || p?.TrackingNo || '').trim())
-    .filter(Boolean);
+  // Tracking lives at item level under <Packages><Package><TrackingNumber>.
+  // (Package is forced to an array by the parser config.) Older shapes used
+  // <TrackingNo> at item/response level — kept as fallbacks.
+  const pkgs = firstItem?.Packages?.Package;
+  const firstPkg = Array.isArray(pkgs) ? pkgs[0] : pkgs;
+  const trackingRaw =
+    text(firstPkg?.TrackingNumber) ||
+    text(firstPkg?.TrackingNo) ||
+    text(firstItem?.TrackingNo) ||
+    text(statusResp?.Packages?.Package?.[0]?.TrackingNumber);
+  const trackingNumbers = trackingRaw ? [String(trackingRaw).trim()] : [];
 
-  const carrier = String(
-    statusResp?.Packages?.Package?.[0]?.CarrierCode?.['#text'] ||
-    statusResp?.Packages?.Package?.[0]?.CarrierCode ||
-    statusResp?.ShipMethod?.['#text'] ||
-    statusResp?.ShipMethod ||
-    ''
+  // Prefer the human-readable ship method description (e.g. "FedEx Home Delivery - Ground")
+  // for carrier detection; fall back to the code.
+  const carrier = (
+    text(firstItem?.ShipMethodDescription) ||
+    text(firstItem?.ShipMethod) ||
+    text(firstPkg?.CarrierCode) ||
+    text(statusResp?.ShipMethod)
   ).trim();
 
   return {
@@ -140,13 +151,20 @@ function parseStatusResponse(xml, poNumber) {
  * Map TD Synnex carrier codes to Shopify-recognized carrier names.
  */
 function normalizeCarrier(code) {
+  const v = (code || '').toString();
+  // Substring match first — handles descriptions like "FedEx Home Delivery - Ground"
+  // and codes like FHD / FXG that aren't in the exact-match map.
+  if (/fedex|\bfhd\b|\bfedx\b|\bfx[a-z]?\b/i.test(v)) return 'FedEx';
+  if (/\bups\b/i.test(v)) return 'UPS';
+  if (/usps|postal/i.test(v)) return 'USPS';
+  if (/\bdhl\b/i.test(v)) return 'DHL';
   const map = {
     FEDX: 'FedEx', FEDX_GRD: 'FedEx', FEDX_2DAY: 'FedEx', FEDX_OVNT: 'FedEx',
     UPS: 'UPS', UPS_GRD: 'UPS', UPS_2DAY: 'UPS', UPS_OVNT: 'UPS',
     USPS: 'USPS', USPS_PM: 'USPS',
     DHL: 'DHL',
   };
-  return map[code?.toUpperCase()] || code || 'Other';
+  return map[v.toUpperCase()] || v || 'Other';
 }
 
 module.exports = { checkOrderStatus };

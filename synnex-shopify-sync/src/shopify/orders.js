@@ -68,6 +68,15 @@ const GET_FULFILLMENT_ORDER = `
   }
 `;
 
+const ADD_ORDER_NOTE = `
+  mutation orderUpdate($input: OrderInput!) {
+    orderUpdate(input: $input) {
+      order { id note }
+      userErrors { message }
+    }
+  }
+`;
+
 const CREATE_FULFILLMENT = `
   mutation fulfillmentCreateV2($fulfillment: FulfillmentV2Input!) {
     fulfillmentCreateV2(fulfillment: $fulfillment) {
@@ -161,4 +170,19 @@ async function createFulfillment({ orderId, trackingNumbers, carrier, notifyCust
   return fulfillment;
 }
 
-module.exports = { getUnfulfilledOrders, createFulfillment };
+/**
+ * Add or replace a note on a Shopify order (visible in Admin → Orders).
+ * Used to flag TD Synnex fulfillment failures for manual follow-up.
+ *
+ * @param {string} orderId - Shopify order GID
+ * @param {string} note    - Note text
+ */
+async function addOrderNote(orderId, note) {
+  const data = await graphql(ADD_ORDER_NOTE, { input: { id: orderId, note } });
+  const { userErrors } = data.orderUpdate;
+  if (userErrors?.length) {
+    throw new Error(userErrors.map(e => e.message).join('; '));
+  }
+}
+
+module.exports = { getUnfulfilledOrders, createFulfillment, addOrderNote };

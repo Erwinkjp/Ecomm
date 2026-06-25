@@ -58,14 +58,23 @@ function buildOrderXml(order) {
   const shipMethod = order.shipMethod || config.synnex.order.defaultShipMethod;
 
   const itemLines = order.lineItems
-    .map((item, i) =>
-      `<Item>
+    .map((item, i) => {
+      // TD SYNNEX's OrderRequest item identifies the product with <SKU> (the numeric
+      // TD SYNNEX catalog ID — same value the P&A API and status response use). The
+      // element is <SKU>, NOT <SynnexSKU>: sending the wrong name makes TD SYNNEX ignore
+      // the SKU and file the line as a non-stock quote (SKU 99). Alphanumeric mfr part
+      // numbers (should already be resolved to numeric IDs upstream) fall back to <MfgPN>.
+      const isNumericId = /^\d+$/.test(item.synnexSku || '');
+      const skuXml = isNumericId
+        ? `<SKU>${escapeXml(item.synnexSku)}</SKU>`
+        : `<MfgPN>${escapeXml(item.synnexSku)}</MfgPN>`;
+      return `<Item>
         <LineNumber>${i + 1}</LineNumber>
-        <SynnexSKU>${escapeXml(item.synnexSku)}</SynnexSKU>
-        <Quantity>${Math.ceil(Number(item.quantity))}</Quantity>
+        ${skuXml}
+        <OrderQuantity>${Math.ceil(Number(item.quantity))}</OrderQuantity>
         <UnitPrice>${Number(item.unitPrice).toFixed(2)}</UnitPrice>
-      </Item>`
-    )
+      </Item>`;
+    })
     .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -75,20 +84,28 @@ function buildOrderXml(order) {
     <Password>${escapeXml(password)}</Password>
   </Credential>
   <OrderRequest>
-    <CustomerNo>${escapeXml(customerNo)}</CustomerNo>
+    <CustomerNumber>${escapeXml(customerNo)}</CustomerNumber>
     <PONumber>${escapeXml(order.poNumber)}</PONumber>
+    <DropShipFlag>Y</DropShipFlag>
     <Shipment>
-      <ShipToName>${escapeXml(ship.name)}</ShipToName>
-      <AddressLine1>${escapeXml(ship.address1)}</AddressLine1>
-      <AddressLine2>${escapeXml(ship.address2 || '')}</AddressLine2>
-      <City>${escapeXml(ship.city)}</City>
-      <State>${escapeXml(ship.province)}</State>
-      <ZipCode>${escapeXml(ship.zip)}</ZipCode>
-      <Country>${escapeXml(ship.country || 'US')}</Country>
-      <PhoneNumber>${escapeXml((ship.phone || '').replace(/\D/g, ''))}</PhoneNumber>
-      <Email>${escapeXml(ship.email || '')}</Email>
-      <ShipMethodCode>${escapeXml(shipMethod)}</ShipMethodCode>
+      <ShipTo>
+        <AddressName1>${escapeXml(ship.name)}</AddressName1>
+        <AddressLine1>${escapeXml(ship.address1)}</AddressLine1>
+        <AddressLine2>${escapeXml(ship.address2 || '')}</AddressLine2>
+        <City>${escapeXml(ship.city)}</City>
+        <State>${escapeXml(ship.province)}</State>
+        <ZipCode>${escapeXml(ship.zip)}</ZipCode>
+        <Country>${escapeXml(ship.country || 'US')}</Country>
+        <PhoneNumber>${escapeXml((ship.phone || '').replace(/\D/g, ''))}</PhoneNumber>
+        <Email>${escapeXml(ship.email || '')}</Email>
+        <ShipMethod>
+          <Code>${escapeXml(shipMethod)}</Code>
+        </ShipMethod>
+      </ShipTo>
     </Shipment>
+    <Payment>
+      <BillTo code="${escapeXml(customerNo)}"/>
+    </Payment>
     <Items>
       ${itemLines}
     </Items>
@@ -139,26 +156,71 @@ function parseOrderResponse(xml, poNumber) {
     ''
   ).trim();
 
+  // Order number may be at the top level or inside the first item element
+  const firstItem = Array.isArray(orderResponse?.Items?.Item)
+    ? orderResponse.Items.Item[0]
+    : orderResponse?.Items?.Item;
+
   const synnexOrderId = String(
     orderResponse?.SynnexOrderNo?.['#text'] ||
     orderResponse?.OrderNo?.['#text'] ||
     orderResponse?.SynnexOrderNo ||
     orderResponse?.OrderNo ||
+    firstItem?.OrderNumber?.['#text'] ||
+    firstItem?.OrderNumber ||
     ''
   ).trim();
 
   const message = String(
     orderResponse?.Msg?.['#text'] ||
     orderResponse?.Message?.['#text'] ||
+    orderResponse?.Reason?.['#text'] ||
+    orderResponse?.ErrorMessage?.['#text'] ||
     orderResponse?.Msg ||
     orderResponse?.Message ||
+    orderResponse?.Reason ||
+    orderResponse?.ErrorMessage ||
     ''
   ).trim();
 
-  // TD Synnex returns code "ACCEPTED" or "0" on success
-  const accepted = code === 'ACCEPTED' || code === '0' || code === 'SUCCESS';
+  const detail = String(
+    orderResponse?.ErrorDetail?.['#text'] ||
+    orderResponse?.ErrorDetail ||
+    firstItem?.Reason?.['#text'] ||
+    firstItem?.Reason ||
+    ''
+  ).trim();
+
+  // TD Synnex returns code "accepted", "ACCEPTED", "0", or "SUCCESS" on success.
+  // A duplicate PO rejection means the order was already received — treat as success.
+  const codeNorm = code.toLowerCase();
+  const isDuplicate = detail.toLowerCase().includes('already exists') ||
+    message.toLowerCase().includes('dupplicated') ||
+    message.toLowerCase().includes('duplicated');
+  const accepted = ['accepted', '0', 'success'].includes(codeNorm) || isDuplicate;
   if (!accepted) {
-    throw new Error(`TD Synnex rejected order ${poNumber}: [${code}] ${message}`);
+    const reason = [message, detail].filter(Boolean).join(' — ') || `code: ${code}`;
+    throw new Error(`TD Synnex rejected order ${poNumber}: ${reason}`);
+  }
+
+  // Guard: TD Synnex "accepts" unrecognized SKUs by filing them as a non-stock quote
+  // order (SKU "99" / "NON-SYNNEX MFG" / "NON-STOCK", OrderType "QO") that never ships.
+  // Treat that as a failure so it surfaces instead of silently never fulfilling.
+  const itemSku  = String(firstItem?.SKU?.['#text']  ?? firstItem?.SKU  ?? '').trim();
+  const itemMfg  = String(firstItem?.MfgPN?.['#text'] ?? firstItem?.MfgPN ?? '').trim().toUpperCase();
+  const itemName = String(firstItem?.ProductName?.['#text'] ?? firstItem?.ProductName ?? '').trim().toUpperCase();
+  const orderType = String(
+    firstItem?.OrderType?.['#text'] ?? firstItem?.OrderType ??
+    orderResponse?.OrderType?.['#text'] ?? orderResponse?.OrderType ?? ''
+  ).trim().toUpperCase();
+  const isNonStock = itemSku === '99' || itemMfg.includes('NON-SYNNEX') ||
+    itemName.includes('NON-STOCK') || orderType === 'QO';
+  if (isNonStock) {
+    throw new Error(
+      `TD Synnex did not recognize the product for order ${poNumber} ` +
+      `(filed as non-stock SKU "${itemSku || '?'}"${itemName ? ` / ${itemName}` : ''}` +
+      `${orderType ? `, type ${orderType}` : ''}). The submitted SKU is not a valid TD Synnex catalog ID.`
+    );
   }
 
   return { synnexOrderId, status: 'submitted', message };

@@ -32,12 +32,20 @@ function escapeXml(str) {
     .replace(/'/g, '&apos;');
 }
 
+// Synnex internal catalog IDs are purely numeric (e.g. 5277569).
+// Manufacturer part numbers are alphanumeric (e.g. K97603WW, 920-002478).
+// The P&A API accepts synnexSKU for numeric IDs and mfgPN for MPNs.
+function skuTag(sku) {
+  return /^\d+$/.test(sku) ? 'synnexSKU' : 'mfgPN';
+}
+
 function buildRequest(partNumbers) {
   const { customerNo, username, password } = config.synnex.xml;
   const skuLines = partNumbers
-    .map((sku, i) =>
-      `<skuList><synnexSKU>${escapeXml(sku)}</synnexSKU><lineNumber>${i + 1}</lineNumber></skuList>`
-    )
+    .map((sku, i) => {
+      const tag = skuTag(sku);
+      return `<skuList><${tag}>${escapeXml(sku)}</${tag}><lineNumber>${i + 1}</lineNumber></skuList>`;
+    })
     .join('\n');
 
   return (
@@ -95,12 +103,18 @@ function parseResponse(xml) {
       const msrpVal = parseFloat(
         text(item.msrp) || text(item.MSRP) || text(item.listPrice) || text(item.ListPrice) || '0'
       );
+      const innerPackQty = Math.max(1,
+        parseInt(text(item.innerPackQty) || text(item.InnerPackQty) ||
+                 text(item.packQty)      || text(item.PackQty)      ||
+                 text(item.minOrderQty)  || text(item.MinOrderQty)  || '1', 10) || 1
+      );
 
       return {
         partNumber,
         quantityAvailable: Math.max(0, Number.isFinite(qty) ? qty : 0),
         price: Number.isFinite(price) && price > 0 ? price : undefined,
         msrp: Number.isFinite(msrpVal) && msrpVal > 0 ? msrpVal : undefined,
+        innerPackQty,
       };
     })
     .filter(Boolean);
@@ -126,6 +140,7 @@ async function fetchPriceAvailability(partNumbers) {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `xmldata=${encodeURIComponent(xmlBody)}`,
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!resp.ok) {

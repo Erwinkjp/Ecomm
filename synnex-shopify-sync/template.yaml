@@ -119,6 +119,41 @@ Parameters:
     Type: String
     Default: ''
     Description: Icecat Open Catalog username for product descriptions and images
+  IcecatAppKey:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: Icecat Full-tier app_key (blank = free Open Icecat). Unlocks gated brands/products.
+  FedExClientId:
+    Type: String
+    Default: ''
+    Description: FedEx API client ID (developer.fedex.com)
+  FedExClientSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: FedEx API client secret
+  FedExAccountNumber:
+    Type: String
+    Default: ''
+    Description: FedEx account number for negotiated rates
+  UpsClientId:
+    Type: String
+    Default: ''
+    Description: UPS API client ID (developer.ups.com)
+  UpsClientSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: UPS API client secret
+  ShippingFreightBufferPct:
+    Type: String
+    Default: '12'
+    Description: Percent buffer added to FedEx/UPS quotes to cover the TD Synnex freight gap
+  ShippingHandlingFee:
+    Type: String
+    Default: '0'
+    Description: Flat handling fee ($) added to each shipping rate
 
   # Order fulfillment
   SynnexOrderUrl:
@@ -129,6 +164,14 @@ Parameters:
     Type: String
     Default: 'https://ec.us.tdsynnex.com/SynnexXML/orderstatus'
     Description: TD Synnex XML order status endpoint
+  SynnexRmaUrl:
+    Type: String
+    Default: ''
+    Description: TD Synnex XML RMA-creation endpoint (leave blank until the RMA spec is confirmed)
+  SynnexRmaStatusUrl:
+    Type: String
+    Default: ''
+    Description: TD Synnex XML RMA-status endpoint (leave blank until the RMA spec is confirmed)
   SynnexDefaultShipMethod:
     Type: String
     Default: 'FEDX_GRD'
@@ -265,6 +308,15 @@ Resources:
       RouteTableIds:
         - !Ref PrivateRouteTable
 
+  S3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref SyncVpc
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+
   SyncApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -295,6 +347,7 @@ Resources:
           SYNNEX_SFTP_PASSWORD: !Ref SynnexSftpPassword
           SYNNEX_SFTP_SECRET_ARN: !Ref SynnexSftpSecretArn
           SYNNEX_SFTP_ZIP_ENTRY: !Ref SynnexSftpZipEntry
+          SYNNEX_SFTP_CACHE_BUCKET: !Ref CatalogCacheBucket
           # XML P&A
           SYNNEX_XML_URL: !Ref SynnexXmlUrl
           SYNNEX_XML_CUSTOMER_NO: !Ref SynnexXmlCustomerNo
@@ -310,10 +363,22 @@ Resources:
           SYNNEX_SYNC_ALLOWLIST: !Ref SynnexSyncAllowlist
           SYNNEX_SYNC_LIMIT: !Ref SynnexSyncLimit
           ICECAT_USERNAME: !Ref IcecatUsername
+          ICECAT_APP_KEY: !Ref IcecatAppKey
+          FEDEX_CLIENT_ID: !Ref FedExClientId
+          FEDEX_CLIENT_SECRET: !Ref FedExClientSecret
+          FEDEX_ACCOUNT_NUMBER: !Ref FedExAccountNumber
+          UPS_CLIENT_ID: !Ref UpsClientId
+          UPS_CLIENT_SECRET: !Ref UpsClientSecret
+          SHIPPING_FREIGHT_BUFFER_PCT: !Ref ShippingFreightBufferPct
+          SHIPPING_HANDLING_FEE: !Ref ShippingHandlingFee
           SYNNEX_ORDER_URL: !Ref SynnexOrderUrl
           SYNNEX_ORDER_STATUS_URL: !Ref SynnexOrderStatusUrl
+          SYNNEX_RMA_URL: !Ref SynnexRmaUrl
+          SYNNEX_RMA_STATUS_URL: !Ref SynnexRmaStatusUrl
           SYNNEX_DEFAULT_SHIP_METHOD: !Ref SynnexDefaultShipMethod
           ORDERS_TABLE: !Ref OrdersTable
+          RETURNS_TABLE: !Ref ReturnsTable
+          PRODUCTS_TABLE: !Ref ProductsTable
           PRICE_MARKUP_PERCENT: !Ref PriceMarkupPercent
       VpcConfig:
         SubnetIds:
@@ -331,24 +396,92 @@ Resources:
                 - HasSftpSecretArn
                 - !Ref SynnexSftpSecretArn
                 - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*'
+        - Statement:
+            - Sid: S3CatalogCache
+              Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:HeadObject
+              Resource: !Sub 'arn:aws:s3:::${CatalogCacheBucket}/*'
       Events:
-        # Daily full catalog sync at 2:00 AM UTC — enable when ready
-        CatalogSync:
+        # Continuous catalog discovery — 6 parallel partitions, each 2 minutes apart.
+        # Each Lambda processes every 6th row of the .ap file (rowIndex % 6 === partition),
+        # so all 6 run on completely disjoint sets of SKUs with zero overlap.
+        # Together they provide ~6x throughput vs a single run.
+        CatalogSync0:
           Type: Schedule
           Properties:
-            Schedule: cron(0 2 * * ? *)
-            Input: '{"job":"catalog-sync"}'
-            Description: Daily TD Synnex catalog download → Shopify product sync
+            Schedule: cron(0/12 * * * ? *)
+            Input: '{"job":"catalog-sync","discover":true,"partition":0,"partitionCount":6}'
+            Description: Catalog discovery partition 0/6
+            Enabled: true
+        CatalogSync1:
+          Type: Schedule
+          Properties:
+            Schedule: cron(2/12 * * * ? *)
+            Input: '{"job":"catalog-sync","discover":true,"partition":1,"partitionCount":6}'
+            Description: Catalog discovery partition 1/6
+            Enabled: true
+        CatalogSync2:
+          Type: Schedule
+          Properties:
+            Schedule: cron(4/12 * * * ? *)
+            Input: '{"job":"catalog-sync","discover":true,"partition":2,"partitionCount":6}'
+            Description: Catalog discovery partition 2/6
+            Enabled: true
+        CatalogSync3:
+          Type: Schedule
+          Properties:
+            Schedule: cron(6/12 * * * ? *)
+            Input: '{"job":"catalog-sync","discover":true,"partition":3,"partitionCount":6}'
+            Description: Catalog discovery partition 3/6
+            Enabled: true
+        CatalogSync4:
+          Type: Schedule
+          Properties:
+            Schedule: cron(8/12 * * * ? *)
+            Input: '{"job":"catalog-sync","discover":true,"partition":4,"partitionCount":6}'
+            Description: Catalog discovery partition 4/6
+            Enabled: true
+        CatalogSync5:
+          Type: Schedule
+          Properties:
+            Schedule: cron(10/12 * * * ? *)
+            Input: '{"job":"catalog-sync","discover":true,"partition":5,"partitionCount":6}'
+            Description: Catalog discovery partition 5/6
             Enabled: true
 
-        # Hourly price & inventory update — enable when ready
+        # Price & inventory update every 15 minutes
         PriceSync:
           Type: Schedule
           Properties:
-            Schedule: rate(1 hour)
+            Schedule: rate(15 minutes)
             Input: '{"job":"price-sync"}'
-            Description: Hourly TD Synnex price and availability → Shopify update
+            Description: TD Synnex price and availability → Shopify update every 15 minutes
             Enabled: true
+
+        # Nightly featured-products refresh — runs at 3 AM UTC (after catalog sync at 2 AM)
+        # Rebuilds the "featured-products" collection with in-stock + image-having products only.
+        RefreshFeatured:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 3 * * ? *)
+            Input: '{"job":"refresh-featured"}'
+            Description: Nightly rebuild of featured-products collection (in-stock + has image)
+            Enabled: true
+
+        # Resumable Icecat enrichment of marketable consumer-brand hardware.
+        # Each run processes a chunk (resumes via a persisted scan cursor), fills in
+        # titles/images/descriptions/specs, and tags completed items `featured`.
+        # Enabled to self-drive to completion; disable once the run reports done:true.
+        TargetedEnrich:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 minutes)
+            Input: '{"job":"targeted-enrich"}'
+            Description: Resumable Icecat enrichment + featured-tagging for consumer-brand hardware
+            Enabled: false  # enrichment run completed 2026-06-24 (done:true, 13,542 enriched)
 
         # HTTP endpoints for manual triggering and monitoring
         HttpHealth:
@@ -369,6 +502,12 @@ Resources:
             ApiId: !Ref SyncApi
             Path: /list-zip
             Method: GET
+        HttpCleanCollections:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /clean-collections
+            Method: POST
         HttpCatalogSync:
           Type: HttpApi
           Properties:
@@ -389,6 +528,24 @@ Resources:
             ApiId: !Ref SyncApi
             Path: /webhook/orders
             Method: POST
+        HttpOrderCancelledWebhook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /webhook/orders-cancelled
+            Method: POST
+        HttpRefundsWebhook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /webhook/refunds
+            Method: POST
+        HttpReturnsWebhook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /webhook/returns
+            Method: POST
         HttpSubmitOrders:
           Type: HttpApi
           Properties:
@@ -401,6 +558,12 @@ Resources:
             ApiId: !Ref SyncApi
             Path: /check-tracking
             Method: POST
+        HttpShippingRates:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /shipping-rates
+            Method: POST
 
         # Submit pending orders to TD Synnex every 5 minutes
         SubmitOrders:
@@ -409,16 +572,75 @@ Resources:
             Schedule: rate(5 minutes)
             Input: '{"job":"submit-orders"}'
             Description: Submit pending Shopify orders to TD Synnex for dropship fulfillment
-            Enabled: false
+            Enabled: true
 
-        # Check TD Synnex for tracking numbers every 30 minutes
+        # Check TD Synnex for tracking numbers every 15 minutes
         CheckTracking:
           Type: Schedule
           Properties:
-            Schedule: rate(30 minutes)
+            Schedule: rate(15 minutes)
             Input: '{"job":"check-tracking"}'
             Description: Check TD Synnex order status and update Shopify fulfillments
+            Enabled: true
+
+        # Returns / RMA — DISABLED until the TD SYNNEX RMA spec is confirmed and
+        # SYNNEX_RMA_URL is set. The jobs no-op while unconfigured; enable then.
+        SubmitRmas:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Input: '{"job":"submit-rmas"}'
+            Description: Open TD Synnex RMAs for requested Shopify returns
             Enabled: false
+        CheckRma:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 minutes)
+            Input: '{"job":"check-rma"}'
+            Description: Poll TD Synnex RMA status and close out received returns
+            Enabled: false
+
+        # Backfill Icecat images for products missing images — runs every 15 minutes
+        ImageBackfill:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 minutes)
+            Input: '{"job":"image-backfill","limit":2000}'
+            Description: Fetch and attach Icecat images for Shopify products with no images
+            Enabled: true
+
+        # One-off backfill: list current B2B hardware SKUs not yet in Shopify (auto-categorized
+        # + Icecat-enriched). Runs unattended in AWS every 6 min. DISABLE once the ~24K are listed.
+        # Backfill complete 2026-06-16 (~26,385 B2B SKUs listed, converged). Disabled.
+        B2bListing:
+          Type: Schedule
+          Properties:
+            Schedule: rate(6 minutes)
+            Input: '{"job":"targeted-discover","b2bOnly":true}'
+            Description: Backfill B2B hardware listings (complete — disabled)
+            Enabled: false
+
+        # Nightly reconciliation — draft any active listing whose SKU is no longer in the
+        # live TD Synnex catalog (orphaned/discontinued), so the storefront only shows
+        # products we can actually fulfill. Runs at 4 AM UTC (after catalog discovery).
+        # Disabled until a reviewed dry-run + first manual apply confirm the scope is safe.
+        # Enable only after validation so we don't auto-draft listings unattended.
+        ReconcileListings:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 4 * * ? *)
+            Input: '{"job":"reconcile-listings","apply":true}'
+            Description: Draft storefront listings no longer backed by the live catalog
+            Enabled: false
+
+  CatalogCacheBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldCatalogs
+            Status: Enabled
+            ExpirationInDays: 3
 
   # DynamoDB table for tracking Shopify → TD Synnex order state
   OrdersTable:
@@ -435,6 +657,64 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
+
+  # DynamoDB table tracking Shopify returns through the RMA lifecycle
+  ReturnsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-returns'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: shopifyReturnId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: shopifyReturnId
+          KeyType: HASH
+
+  # DynamoDB table — approved product catalog (every SKU we've chosen to sell)
+  ProductsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-products'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: synnexSku
+          AttributeType: S
+        - AttributeName: mfrPartNumber
+          AttributeType: S
+      KeySchema:
+        - AttributeName: synnexSku
+          KeyType: HASH
+      # Reverse lookup: manufacturer part number (the Shopify variant SKU) → numeric
+      # synnexSku, used at order time so orders submit a valid TD Synnex catalog ID.
+      GlobalSecondaryIndexes:
+        - IndexName: mfrPartNumber-index
+          KeySchema:
+            - AttributeName: mfrPartNumber
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Grant Lambda read/write access to the products table
+  ProductsTablePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub '${AWS::StackName}-products-dynamodb'
+      Roles:
+        - !Ref SyncFunctionRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+              - dynamodb:Scan
+              - dynamodb:Query
+            Resource:
+              - !GetAtt ProductsTable.Arn
+              - !Sub '${ProductsTable.Arn}/index/*'
 
   # Grant Lambda read/write access to the orders table
   OrdersTablePolicy:
@@ -454,6 +734,25 @@ Resources:
               - dynamodb:Scan
               - dynamodb:Query
             Resource: !GetAtt OrdersTable.Arn
+
+  # Grant Lambda read/write access to the returns table
+  ReturnsTablePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub '${AWS::StackName}-returns-dynamodb'
+      Roles:
+        - !Ref SyncFunctionRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+              - dynamodb:Scan
+              - dynamodb:Query
+            Resource: !GetAtt ReturnsTable.Arn
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────
 
@@ -483,6 +782,18 @@ Outputs:
   OrderWebhookUrl:
     Description: Register this URL in Shopify as the orders/paid webhook
     Value: !Sub 'https://${SyncApi}.execute-api.${AWS::Region}.amazonaws.com/webhook/orders'
+  ReturnsWebhookUrl:
+    Description: Register this URL in Shopify for returns/request + returns/approve webhooks
+    Value: !Sub 'https://${SyncApi}.execute-api.${AWS::Region}.amazonaws.com/webhook/returns'
+  ShippingRatesUrl:
+    Description: Register this URL in Shopify as a carrier service (Settings → Shipping → Manage rates)
+    Value: !Sub 'https://${SyncApi}.execute-api.${AWS::Region}.amazonaws.com/shipping-rates'
   OrdersTableName:
     Description: DynamoDB table tracking order fulfillment state
     Value: !Ref OrdersTable
+  ProductsTableName:
+    Description: DynamoDB table of approved products to sell (SKUs discovered from catalog)
+    Value: !Ref ProductsTable
+  CatalogCacheBucketName:
+    Description: S3 bucket caching daily TD Synnex catalog (.ap file)
+    Value: !Ref CatalogCacheBucket

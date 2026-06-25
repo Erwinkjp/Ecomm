@@ -7,6 +7,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Clear any stale session token — long-term IAM keys must not have a session token set
+unset AWS_SESSION_TOKEN
+
 # ── Required ──────────────────────────────────────────────────────────────────
 : "${SHOPIFY_CLIENT_ID:?Set SHOPIFY_CLIENT_ID in .env}"
 : "${SHOPIFY_CLIENT_SECRET:?Set SHOPIFY_CLIENT_SECRET in .env}"
@@ -43,11 +46,23 @@ parts = [
     add("SynnexSftpPassword",     "SYNNEX_SFTP_PASSWORD"),
     add("SynnexSftpSecretArn",    "SYNNEX_SFTP_SECRET_ARN"),
     add("SynnexSftpZipEntry",     "SYNNEX_SFTP_ZIP_ENTRY"),
-    add("SynnexSyncFilterBrands",     "SYNNEX_SYNC_FILTER_BRANDS"),
-    add("SynnexSyncFilterCategories", "SYNNEX_SYNC_FILTER_CATEGORIES"),
-    add("SynnexSyncAllowlist",    "SYNNEX_SYNC_ALLOWLIST"),
-    add("SynnexSyncLimit",        "SYNNEX_SYNC_LIMIT",  always=True),
+    add("SynnexSyncFilterBrands",     "SYNNEX_SYNC_FILTER_BRANDS",     always=True),
+    add("SynnexSyncFilterCategories", "SYNNEX_SYNC_FILTER_CATEGORIES", always=True),
+    add("SynnexSyncAllowlist",    "SYNNEX_SYNC_ALLOWLIST",    always=True),
+    add("SynnexSyncLimit",        "SYNNEX_SYNC_LIMIT",        always=True),
     add("IcecatUsername",         "ICECAT_USERNAME"),
+    add("IcecatAppKey",           "ICECAT_APP_KEY",          always=True),
+    add("FedExClientId",          "FEDEX_CLIENT_ID"),
+    add("FedExClientSecret",      "FEDEX_CLIENT_SECRET"),
+    add("FedExAccountNumber",     "FEDEX_ACCOUNT_NUMBER"),
+    add("UpsClientId",            "UPS_CLIENT_ID"),
+    add("UpsClientSecret",        "UPS_CLIENT_SECRET"),
+    add("ShippingFreightBufferPct", "SHIPPING_FREIGHT_BUFFER_PCT"),
+    add("ShippingHandlingFee",      "SHIPPING_HANDLING_FEE"),
+    add("SynnexOrderUrl",         "SYNNEX_ORDER_URL"),
+    add("SynnexOrderStatusUrl",   "SYNNEX_ORDER_STATUS_URL"),
+    add("SynnexRmaUrl",           "SYNNEX_RMA_URL",          always=True),
+    add("SynnexRmaStatusUrl",     "SYNNEX_RMA_STATUS_URL",   always=True),
 ]
 
 print(" ".join(p for p in parts if p))
@@ -80,3 +95,44 @@ echo "Parameters loaded. Building..."
 sam build
 
 sam deploy --config-file "$SAMCONFIG"
+
+# ── Re-register Shopify webhooks after every deploy ───────────────────────────
+# Shopify auto-disables webhooks on repeated delivery failures (e.g. during redeploys).
+# Re-registering after each deploy keeps them alive. Existing webhooks for the same
+# topic+address are returned as-is; this is idempotent.
+echo "Re-registering Shopify webhooks..."
+LAMBDA_URL=$(aws cloudformation describe-stacks \
+  --stack-name synnex-shopify-sync \
+  --query "Stacks[0].Outputs[?OutputKey=='ApiBaseUrl'].OutputValue" \
+  --output text --region us-east-1 2>/dev/null)
+
+if [ -n "$LAMBDA_URL" ] && [ -n "$SHOPIFY_STORE" ] && [ -n "$SHOPIFY_ACCESS_TOKEN" ]; then
+  node - <<JSEOF
+const https = require('https');
+const store = '${SHOPIFY_STORE}';
+const token = '${SHOPIFY_ACCESS_TOKEN}';
+const base  = '${LAMBDA_URL}';
+const hooks = [
+  ['orders/paid',      '/webhook/orders'],
+  ['orders/cancelled', '/webhook/orders-cancelled'],
+  ['refunds/create',   '/webhook/refunds'],
+  ['returns/request',  '/webhook/returns'],
+  ['returns/approve',  '/webhook/returns'],
+];
+(async () => {
+  for (const [topic, path] of hooks) {
+    await new Promise((res, rej) => {
+      const body = JSON.stringify({ webhook: { topic, address: base + path, format: 'json' } });
+      const req = https.request({
+        hostname: store + '.myshopify.com',
+        path: '/admin/api/2026-01/webhooks.json', method: 'POST',
+        headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+      }, r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>{ const j=JSON.parse(d); console.log(j.webhook ? '  ✓ '+j.webhook.topic : '  already exists: '+topic); res(); }); });
+      req.on('error', rej); req.write(body); req.end();
+    });
+  }
+})();
+JSEOF
+else
+  echo "  Skipped (SHOPIFY_STORE or SHOPIFY_ACCESS_TOKEN not set)"
+fi

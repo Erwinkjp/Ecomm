@@ -24,12 +24,15 @@ const { config, isSftpConfigured, isXmlConfigured, validateShopify } = require('
 const { streamCatalogLines, listZipEntries } = require('./synnex/sftp');
 const { createLineParser } = require('./synnex/catalog');
 const { fetchPriceAvailability } = require('./synnex/pricing');
-const { upsertProduct, getAllVariants } = require('./shopify/products');
+const { upsertProduct, getAllVariants, getActiveProductsPage, setProductDraft, getUnpublishedProductIds, publishProduct, updateProductContent } = require('./shopify/products');
 const { setInventoryQuantities, updateVariantPrice, setProductLeadTimes } = require('./shopify/inventory');
 const { toShopifyProduct, applyMarkup, mapCategory, buildTags, normalizeBrand, expandAppleTitle } = require('./transform');
-const { saveProduct, getAllProducts, getProductCount } = require('./catalog/products');
+const { categorize } = require('./categorize');
+const { saveProduct, getAllProducts, getProductByMfrPart, getProductCount, scanProductsPage, getJobState, putJobState } = require('./catalog/products');
 const { fetchIcecatProduct } = require('./icecat/client');
-const { verifyWebhook, parseOrderWebhook } = require('./shopify/webhooks');
+const { verifyWebhook, parseOrderWebhook, parseReturnWebhook } = require('./shopify/webhooks');
+const { createRma, checkRmaStatus, isRmaConfigured } = require('./synnex/rma');
+const returnsState = require('./returns/state');
 const { exchangeCodeForToken } = require('./shopify/auth');
 const { calculateRates } = require('./shopify/shippingRates');
 const { getUnfulfilledOrders, createFulfillment, addOrderNote } = require('./shopify/orders');
@@ -37,7 +40,21 @@ const { submitOrder } = require('./synnex/orderSubmit');
 const { checkOrderStatus } = require('./synnex/orderStatus');
 const { saveOrder, markSubmitted, markShipped, markFulfilled, markError, getOrdersByStatus, getOrder } = require('./orders/state');
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function truncateTitle(title) {
+  if (!title || title.length <= 255) return title;
+  return title.slice(0, 255).replace(/\s\S*$/, '').trim() || title.slice(0, 255).trim();
+}
+
 // ─── Catalog Sync ─────────────────────────────────────────────────────────────
+
+// Category groups (from transform.js CATEGORY_MAP) that are excluded from the store.
+// These map to the `group` field returned by mapCategory().
+const EXCLUDED_GROUPS = new Set([
+  'home-appliances', // vacuums, fans, water coolers, massage chairs — not B2B/B2C tech
+  'software',        // software licenses — not prepared to support
+]);
 
 // Categories that are never sellable hardware — skip these regardless of brand.
 // Covers: warranties, service contracts, software licenses, gaming peripherals.
@@ -65,9 +82,10 @@ async function syncOneProduct(product, result) {
     let enrichedTitle;
     let enrichedDescription;
     let images = [];
+    let icecat = null;
     if (config.icecat.username) {
       try {
-        const icecat = await fetchIcecatProduct({
+        icecat = await fetchIcecatProduct({
           brand: normalizeBrand(product.manufacturer),
           partNumber: product.mfrPartNumber,
           upc: product.upc,
@@ -84,24 +102,33 @@ async function syncOneProduct(product, result) {
     const shopifyInput = toShopifyProduct(product, enrichedDescription);
     // Use Icecat title when available; fall back to Apple-specific expansion for CTO products
     if (enrichedTitle) {
-      shopifyInput.title = enrichedTitle;
+      shopifyInput.title = truncateTitle(enrichedTitle);
     } else if (normalizeBrand(product.manufacturer) === 'Apple') {
-      shopifyInput.title = expandAppleTitle(product.description);
+      shopifyInput.title = truncateTitle(expandAppleTitle(product.description));
     }
     const { productId, variantId, inventoryItemId } = await upsertProduct(shopifyInput, images);
+
+    // Write specs metafield if Icecat returned structured spec data
+    if (productId && icecat?.specs?.length > 0) {
+      await updateProductContent(productId, { specs: icecat.specs }).catch(e =>
+        console.warn(`[specs] ${sku}: ${e.message}`)
+      );
+    }
+
     result.synced += 1;
 
     // Persist to the approved-products catalog in DynamoDB.
     // This becomes the permanent record of what we sell — future syncs can
     // read from here instead of re-scanning the 1M-row catalog file.
-    const { type: productType } = mapCategory(product.category, product.description);
-    const tags = buildTags(product.manufacturer, product.category, product.description);
+    const { type: productType } = categorize({ unspsc: product.unspsc, description: product.description, category: product.category, manufacturer: product.manufacturer });
+    const tags = buildTags(product.manufacturer, product);
     await saveProduct({
       synnexSku:              sku,
       mfrPartNumber:          product.mfrPartNumber,
       description:            product.description,
       manufacturer:           product.manufacturer,
       category:               product.category,
+      unspsc:                 product.unspsc,
       productType,
       tags,
       shopifyProductId:       productId       || '',
@@ -175,14 +202,28 @@ async function runCatalogSync(event = {}) {
   const categorySet = categories.length ? new Set(categories.map(c => c.toLowerCase())) : null;
   const skuSet = allowlist.length ? new Set(allowlist) : null;
 
-  // Load all SKUs already in Shopify so we can skip them and advance through the catalog.
-  // Each run processes the NEXT batch of new products rather than re-syncing the same ones.
-  const existingVariants = await getAllVariants();
-  const syncedSkuSet = new Set(existingVariants.map(v => v.sku).filter(Boolean));
+  // Build the already-synced SKU set. DynamoDB scan is O(seconds) vs O(minutes) for
+  // paginating 60k+ Shopify variants, so prefer DynamoDB when available.
+  let syncedSkuSet;
+  const dbProducts = await getAllProducts();
+  if (dbProducts.length > 0) {
+    syncedSkuSet = new Set(dbProducts.map(p => p.synnexSku).filter(Boolean));
+    console.log(`[catalog-sync] using DynamoDB skip-set: ${syncedSkuSet.size} known SKUs`);
+  } else {
+    const existingVariants = await getAllVariants();
+    syncedSkuSet = new Set(existingVariants.map(v => v.sku).filter(Boolean));
+    console.log(`[catalog-sync] using Shopify skip-set: ${syncedSkuSet.size} known SKUs`);
+  }
 
   // Stop streaming 90s before Lambda's hard timeout so we can flush and return cleanly
   const LAMBDA_TIMEOUT_MS = (config.sync.timeoutSeconds || 510) * 1000;
   const startedAt = Date.now();
+
+  // Partition support: each Lambda processes only rows where rowIndex % partitionCount === partition.
+  // Prevents concurrent runs from duplicating work on the same .ap file rows.
+  const partition      = event.partition      ?? 0;
+  const partitionCount = event.partitionCount ?? 1;
+  let rowIndex = 0;
 
   let batch = [];
   let stopped = false;
@@ -208,6 +249,9 @@ async function runCatalogSync(event = {}) {
       const product = parseLine(line);
       if (!product) return true;
 
+      // Partition filter — skip rows not owned by this Lambda instance
+      if (partitionCount > 1 && (rowIndex++ % partitionCount) !== partition) return true;
+
       if (skuSet && !skuSet.has(product.synnexSku || product.mfrPartNumber)) return true;
       if (brandSet && !brandSet.has((product.manufacturer || '').toLowerCase())) return true;
       if (categorySet && !categorySet.has((product.category || '').toLowerCase())) return true;
@@ -216,8 +260,13 @@ async function runCatalogSync(event = {}) {
       // These are never sellable hardware items and would pollute the store.
       if (EXCLUDED_CATEGORIES.has((product.category || '').toLowerCase())) return true;
 
+      // Exclude non-tech category groups (home appliances etc.)
+      const { group: productGroup } = mapCategory(product.category);
+      if (EXCLUDED_GROUPS.has(productGroup)) return true;
+
       // Skip products already in Shopify — price-sync handles their price/inventory updates.
       // This lets each catalog-sync run advance past already-synced SKUs and pick up new ones.
+      // Note: draft products (manually hidden) stay draft — catalog-sync never re-publishes them.
       const sku = product.synnexSku || product.mfrPartNumber;
       if (syncedSkuSet.has(sku)) { result.skipped += 1; return true; }
 
@@ -281,10 +330,18 @@ async function runTargetedDiscover(event = {}) {
   const targetTypes = new Set((event.types || []).map(t => t.toLowerCase()));
   const targetTags  = new Set((event.tags  || []).map(t => t.toLowerCase()));
 
-  if (targetTypes.size === 0 && targetTags.size === 0) {
+  // b2bOnly: list the full B2B hardware keep-set (UNSPSC families + in-stock + cost
+  // floor + no accessory noise) — same rule as scripts/curate-b2b.js. Used to list the
+  // ~24K current B2B hardware SKUs not yet in Shopify.
+  const b2bOnly = event.b2bOnly === true;
+  const B2B_FAMILIES = new Set(['4320', '4321', '4322', '3912', '4617']);
+  const B2B_MIN_COST = Number(event.minCost ?? 20);
+  const B2B_NOISE = /mouse ?pad|cable tie|coupler|cleaning cartridge|\bscrew\b|\blabel\b|wrist rest|cable manage|velcro|filler panel|blank panel|\bdust\b|grommet|cable clip/i;
+
+  if (!b2bOnly && targetTypes.size === 0 && targetTags.size === 0) {
     throw new Error(
-      'targeted-discover requires at least one "types" or "tags" array.\n' +
-      'Example: { "job": "targeted-discover", "tags": ["keyboard", "mouse"] }'
+      'targeted-discover requires "b2bOnly":true, or at least one "types"/"tags" array.\n' +
+      'Example: { "job": "targeted-discover", "b2bOnly": true }'
     );
   }
 
@@ -293,10 +350,14 @@ async function runTargetedDiscover(event = {}) {
   const LAMBDA_TIMEOUT_MS = (config.sync.timeoutSeconds || 510) * 1000;
   const startedAt   = Date.now();
 
-  // Load already-synced SKUs so we skip products already in Shopify.
-  // price-sync handles their price/inventory updates — we only want new ones.
-  const existingVariants = await getAllVariants();
-  const syncedSkuSet = new Set(existingVariants.map(v => v.sku).filter(Boolean));
+  // Load already-synced SKUs from the DynamoDB catalog (one paginated scan) rather
+  // than paginating ~700K Shopify variants (too slow — it blew the Lambda budget).
+  const dbProducts = await getAllProducts();
+  const syncedSkuSet = new Set();
+  for (const p of dbProducts) {
+    if (p.synnexSku) syncedSkuSet.add(p.synnexSku);
+    if (p.mfrPartNumber) syncedSkuSet.add(p.mfrPartNumber);
+  }
 
   const result = {
     fetched: 0,
@@ -331,16 +392,21 @@ async function runTargetedDiscover(event = {}) {
       const product = parseLine(line);
       if (!product) return true;
 
-      // Reject excluded categories (warranties, software licences, etc.)
-      if (EXCLUDED_CATEGORIES.has((product.category || '').toLowerCase())) return true;
-
-      // mapCategory is a pure sync function — no I/O.  Rejecting here means
-      // non-matching rows cost only one regex pass before being discarded,
-      // allowing the scanner to cover the full file within the Lambda budget.
-      const { type: mappedType, tags: mappedTags } = mapCategory(product.category, product.description);
-      const typeMatch = targetTypes.size > 0 && targetTypes.has((mappedType || '').toLowerCase());
-      const tagMatch  = targetTags.size  > 0 && mappedTags.some(t => targetTags.has(t.toLowerCase()));
-      if (!typeMatch && !tagMatch) return true;
+      if (b2bOnly) {
+        // B2B hardware keep-rule (mirrors curate-b2b): UNSPSC family + in-stock + cost floor + no noise.
+        if (!B2B_FAMILIES.has(String(product.unspsc || '').slice(0, 4))) return true;
+        if ((product.quantityAvailable || 0) <= 0) return true;
+        if ((product.price || 0) < B2B_MIN_COST) return true;
+        if (B2B_NOISE.test(product.description || '')) return true;
+      } else {
+        // Type/tag targeting — categorize() (UNSPSC-driven) instead of the old mapCategory.
+        const { type: mappedType, tags: mappedTags, group: mappedGroup } =
+          categorize({ unspsc: product.unspsc, description: product.description, category: product.category, manufacturer: product.manufacturer });
+        if (EXCLUDED_GROUPS.has(mappedGroup)) return true;
+        const typeMatch = targetTypes.size > 0 && targetTypes.has((mappedType || '').toLowerCase());
+        const tagMatch  = targetTags.size  > 0 && mappedTags.some(t => targetTags.has(t.toLowerCase()));
+        if (!typeMatch && !tagMatch) return true;
+      }
 
       // Skip products already in Shopify
       const sku = product.synnexSku || product.mfrPartNumber;
@@ -447,6 +513,236 @@ async function runScanCatalog() {
   };
 }
 
+// ─── Fix Publications ──────────────────────────────────────────────────────────
+
+/**
+ * Publish every product in Shopify to the Online Store sales channel.
+ *
+ * The previous publishProduct implementation used the Shopify REST Products API
+ * (hardcoded at version 2024-10), which was sunset in April 2025. Every product
+ * synced after that date was created in Shopify but never published to the
+ * storefront. Run this job once to fix the backlog.
+ *
+ * Subsequent syncs now use the GraphQL publishablePublish mutation so this
+ * one-off repair won't be needed again.
+ *
+ * Direct invoke: { "job": "fix-publications" }
+ */
+async function runFixPublications() {
+  validateShopify();
+
+  const startedAt = Date.now();
+  // Leave 60 s buffer before Lambda hard timeout to return a clean result
+  const LAMBDA_TIMEOUT_MS = (config.sync.timeoutSeconds || 510) * 1000;
+
+  const productIds = await getUnpublishedProductIds();
+
+  const result = { total: productIds.length, published: 0, alreadyPublished: 0, errorCount: 0, timedOut: false };
+  const sampleErrors = [];
+  const CONCURRENCY = 10;
+
+  for (let i = 0; i < productIds.length; i += CONCURRENCY) {
+    if (Date.now() - startedAt > LAMBDA_TIMEOUT_MS) {
+      result.timedOut = true;
+      console.log(`[fix-publications] timeout after ${result.published + result.alreadyPublished} products — re-run to continue`);
+      break;
+    }
+
+    const batch = productIds.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(async (gid) => {
+      try {
+        await publishProduct(gid);
+        result.published += 1;
+      } catch (e) {
+        // Shopify returns various "already published" messages depending on API version
+        if (/already (published|exists)|not changed/i.test(e.message)) {
+          result.alreadyPublished += 1;
+        } else {
+          result.errorCount += 1;
+          // Keep first 5 error samples for diagnosis
+          if (sampleErrors.length < 5) sampleErrors.push(`${gid}: ${e.message}`);
+        }
+      }
+    }));
+
+    const done = result.published + result.alreadyPublished + result.errorCount;
+    if (done > 0 && done % 200 === 0) {
+      console.log(`[fix-publications] progress: ${done}/${productIds.length} (ok=${result.published + result.alreadyPublished} err=${result.errorCount})`);
+    }
+  }
+
+  if (sampleErrors.length) {
+    console.log('[fix-publications] sample errors:', JSON.stringify(sampleErrors));
+  }
+
+  return result;
+}
+
+// ─── Fix Product Types ────────────────────────────────────────────────────────
+
+/**
+ * Bulk-correct productType for keyboards and mice that were synced with the
+ * wrong type ('Accessories') before the transform.js fix.
+ *
+ * Direct invoke: { "job": "fix-product-types" }
+ */
+async function runFixProductTypes() {
+  validateShopify();
+  const { graphql: gql } = require('./shopify/auth');
+
+  const QUERY = `
+    query getByTagAndType($q: String!, $cursor: String) {
+      products(first: 250, after: $cursor, query: $q) {
+        pageInfo { hasNextPage endCursor }
+        nodes { id }
+      }
+    }
+  `;
+  const UPDATE = `
+    mutation productUpdate($input: ProductInput!) {
+      productUpdate(input: $input) {
+        product { id productType }
+        userErrors { field message }
+      }
+    }
+  `;
+
+  const FIXES = [
+    { query: 'tag:keyboard product_type:Accessories', productType: 'Keyboard' },
+    { query: 'tag:mouse product_type:Accessories',    productType: 'Mouse'    },
+  ];
+
+  const result = { fixed: 0, errors: 0 };
+
+  for (const { query, productType } of FIXES) {
+    let cursor = null;
+    do {
+      const data = await gql(QUERY, { q: query, ...(cursor ? { cursor } : {}) });
+      const page = data.products;
+      const ids = page.nodes.map(p => p.id);
+
+      await Promise.all(ids.map(async (id) => {
+        try {
+          await gql(UPDATE, { input: { id, productType } });
+          result.fixed += 1;
+        } catch (e) {
+          result.errors += 1;
+          console.warn(`[fix-product-types] ${id}: ${e.message}`);
+        }
+      }));
+
+      cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+    } while (cursor);
+  }
+
+  return result;
+}
+
+// ─── Fix Mice Cleanup ─────────────────────────────────────────────────────────
+
+/**
+ * Fix products incorrectly typed as Mouse due to description-matching bug.
+ *
+ * Strategy:
+ *  - Actual mice (title contains mouse/trackball/trackpad) → keep as Mouse
+ *  - Desktops / mini PCs → retype to Desktops, remove mouse tag
+ *  - AV / conferencing gear → retype to Accessories, remove mouse tag
+ *  - Headsets / earbuds → retype to Accessories, remove mouse tag
+ *  - Rack / enclosure / panel / infrastructure → delete (not in catalog scope)
+ *  - ID cards / specialty media → delete (not in catalog scope)
+ *  - Everything else unrecognised → retype to Accessories, remove mouse tag
+ *
+ * Direct invoke: { "job": "fix-mice-cleanup" }
+ */
+async function runFixMiceCleanup() {
+  validateShopify();
+  const { graphql: gql } = require('./shopify/auth');
+
+  const LIST = `
+    query listMouse($cursor: String) {
+      products(first: 250, after: $cursor, query: "product_type:Mouse") {
+        pageInfo { hasNextPage endCursor }
+        nodes { id title tags }
+      }
+    }
+  `;
+  const UPDATE = `
+    mutation productUpdate($input: ProductInput!) {
+      productUpdate(input: $input) {
+        product { id }
+        userErrors { field message }
+      }
+    }
+  `;
+  const DELETE = `
+    mutation productDelete($input: ProductDeleteInput!) {
+      productDelete(input: $input) {
+        deletedProductId
+        userErrors { field message }
+      }
+    }
+  `;
+
+  // Title patterns that confirm this is an actual pointing device
+  const IS_MOUSE = /\b(mouse|mice|trackball|trackpad|track\s*point|pointer)\b/i;
+
+  // Classification for non-mice
+  function classify(title) {
+    const t = title.toLowerCase();
+    if (/\b(mini pc|micro pc|nuc|optiplex|qcm|qbm|desktop|small form|sff|tower)\b/.test(t))
+      return { action: 'retype', productType: 'Desktops', removeTag: 'mouse', addTag: 'desktop' };
+    if (/\b(rally bar|mic pod|tap cat|tapcat|conference|video bar|webcam|sight)\b/.test(t))
+      return { action: 'retype', productType: 'Accessories', removeTag: 'mouse', addTag: 'av' };
+    if (/\b(headphone|headset|earbud|earphone)\b/.test(t))
+      return { action: 'retype', productType: 'Accessories', removeTag: 'mouse', addTag: 'headset' };
+    if (/\b(rack|enclosure|blank panel|patch panel|cable mgmt|netshel)\b/.test(t))
+      return { action: 'delete' };
+    if (/\b(pvc card|id card|mil\b|micrometer|cr80)\b/.test(t))
+      return { action: 'delete' };
+    // Default: move to Accessories, strip mouse tag
+    return { action: 'retype', productType: 'Accessories', removeTag: 'mouse', addTag: 'accessory' };
+  }
+
+  const result = { kept: 0, retyped: 0, deleted: 0, errors: 0 };
+  let cursor = null;
+
+  do {
+    const data = await gql(LIST, cursor ? { cursor } : {});
+    const page = data.products;
+
+    await Promise.all(page.nodes.map(async (p) => {
+      try {
+        if (IS_MOUSE.test(p.title)) {
+          result.kept += 1;
+          return;
+        }
+
+        const decision = classify(p.title);
+
+        if (decision.action === 'delete') {
+          await gql(DELETE, { input: { id: p.id } });
+          result.deleted += 1;
+          return;
+        }
+
+        // retype: update productType and swap tags
+        const newTags = p.tags
+          .filter(t => t !== decision.removeTag)
+          .concat(decision.addTag || []);
+        await gql(UPDATE, { input: { id: p.id, productType: decision.productType, tags: newTags } });
+        result.retyped += 1;
+      } catch (e) {
+        result.errors += 1;
+        console.warn(`[fix-mice-cleanup] ${p.id} "${p.title.slice(0, 40)}": ${e.message}`);
+      }
+    }));
+
+    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+  } while (cursor);
+
+  return result;
+}
+
 // ─── Price & Inventory Sync ───────────────────────────────────────────────────
 
 /**
@@ -515,37 +811,50 @@ async function runPriceSync() {
     }
     const byPartNumber = new Map(pAndA.map(p => [p.partNumber, p]));
 
-    for (const product of batch) {
-      if (!product.synnexSku) continue;
-      const data = byPartNumber.get(product.synnexSku);
-      if (!data) continue;
+    const PRICE_CONCURRENCY = 10;
+    for (let j = 0; j < batch.length; j += PRICE_CONCURRENCY) {
+      const chunk = batch.slice(j, j + PRICE_CONCURRENCY);
+      await Promise.all(chunk.map(async (product) => {
+        if (!product.synnexSku) return;
+        const data = byPartNumber.get(product.synnexSku);
+        if (!data) return;
 
-      const isSpecialOrder = SPECIAL_ORDER_TYPES.has(product.productType);
-      const qty = data.quantityAvailable ?? 0;
+        const isSpecialOrder = SPECIAL_ORDER_TYPES.has(product.productType);
+        const qty = data.quantityAvailable ?? 0;
 
-      // Update variant price + inventory policy.
-      // Only queue the inventory update when the price update succeeds — a successful
-      // price write confirms the Shopify GIDs are still valid, so the inventory item
-      // ID is also trustworthy. Stale GIDs (deleted/recreated products) are skipped.
-      if (syncPrices && data.price != null && product.shopifyVariantId) {
-        try {
-          const inventoryPolicy = isSpecialOrder && qty === 0 ? 'CONTINUE' : 'DENY';
-          await updateVariantPrice({
-            productId: product.shopifyProductId,
-            variantId: product.shopifyVariantId,
-            price: applyMarkup(data.price),
-            compareAtPrice: msrpAsCompareAt && data.msrp ? data.msrp : undefined,
-            inventoryPolicy,
-          });
-          result.pricesUpdated += 1;
-          if (isSpecialOrder && qty === 0) specialOrderProductIds.add(product.shopifyProductId);
-          if (product.shopifyInventoryItemId && locationId) {
-            inventoryUpdates.push({ inventoryItemId: product.shopifyInventoryItemId, locationId, quantity: qty });
+        if (syncPrices && data.price != null && product.shopifyVariantId) {
+          try {
+            const packQty = data.innerPackQty || 1;
+            // Unit price × pack size = what the customer pays for one shipment
+            const unitCost  = data.price * packQty;
+            const sellPrice = applyMarkup(unitCost);
+            const compareAt = msrpAsCompareAt && data.msrp ? data.msrp * packQty : undefined;
+
+            // Sanity guard: never push a price that is less than 10% of the compare-at
+            // price (when available) — this catches pack-pricing errors and bad catalog data.
+            if (compareAt && sellPrice < compareAt * 0.10) {
+              result.errors.push(`${product.synnexSku} price skipped: $${sellPrice} is <10% of MSRP $${compareAt} (packQty=${packQty})`);
+              return;
+            }
+
+            const inventoryPolicy = isSpecialOrder && qty === 0 ? 'CONTINUE' : 'DENY';
+            await updateVariantPrice({
+              productId: product.shopifyProductId,
+              variantId: product.shopifyVariantId,
+              price: sellPrice,
+              compareAtPrice: compareAt,
+              inventoryPolicy,
+            });
+            result.pricesUpdated += 1;
+            if (isSpecialOrder && qty === 0) specialOrderProductIds.add(product.shopifyProductId);
+            if (product.shopifyInventoryItemId && locationId) {
+              inventoryUpdates.push({ inventoryItemId: product.shopifyInventoryItemId, locationId, quantity: qty });
+            }
+          } catch (e) {
+            result.errors.push(`${product.synnexSku} price: ${e.message}`);
           }
-        } catch (e) {
-          result.errors.push(`${product.synnexSku} price: ${e.message}`);
         }
-      }
+      }));
     }
   }
 
@@ -663,6 +972,98 @@ async function runRefreshFeatured() {
 // ─── Order Fulfillment Jobs ───────────────────────────────────────────────────
 
 /**
+ * reconcile-listings: Retire orphaned storefront listings.
+ *
+ * The store contains many active products that are no longer backed by the live TD Synnex
+ * catalog — created by an earlier import, or since discontinued. They show frozen "phantom"
+ * inventory (price-sync only updates products in the catalog table) and can't be fulfilled.
+ *
+ * This walks every active Shopify product and sets any whose SKU isn't in the live catalog
+ * to DRAFT (reversible — removes from storefront without deleting). Dry-run by default;
+ * pass { apply: true } to actually draft. Runs nightly once enabled.
+ *
+ * @param {{ apply?: boolean }} opts
+ */
+async function runReconcileListings(opts = {}) {
+  const apply = opts.apply === true;
+  const result = { apply, catalogSkus: 0, scanned: 0, orphaned: 0, drafted: 0, kept: 0, samples: [], errors: [], timedOut: false, nextCursor: null };
+
+  // Build the set of valid SKUs = every manufacturer part number (and numeric catalog ID)
+  // present in the live catalog table. A listing whose SKU isn't here is orphaned.
+  const products = await getAllProducts();
+  const validSkus = new Set();
+  for (const p of products) {
+    const mpn = String(p.mfrPartNumber || '').trim(); if (mpn) validSkus.add(mpn);
+    const sid = String(p.synnexSku || '').trim();      if (sid) validSkus.add(sid);
+  }
+  result.catalogSkus = validSkus.size;
+
+  const startedAt = Date.now();
+  const BUDGET_MS = (config.sync.timeoutSeconds || 510) * 1000;
+
+  // Scan active products and draft orphans INLINE per page, so progress (and drafting)
+  // persists even if the store is too large to finish in one invocation. Resumable:
+  // on timeout we return nextCursor; the caller re-invokes with { startCursor } to continue.
+  // nextCursor is captured before drafting, and Shopify cursors are id-based, so drafting
+  // already-scanned items doesn't disturb forward pagination.
+  let cursor = opts.startCursor || null;
+  do {
+    if (Date.now() - startedAt > BUDGET_MS) { result.timedOut = true; result.nextCursor = cursor; break; }
+    const { products: page, nextCursor } = await getActiveProductsPage(cursor);
+
+    const orphansThisPage = [];
+    for (const prod of page) {
+      result.scanned++;
+      const sku = String(prod.sku || '').trim();
+      if (sku && validSkus.has(sku)) { result.kept++; continue; }
+      result.orphaned++;
+      orphansThisPage.push(prod);
+      if (result.samples.length < 10) result.samples.push(`${sku || '(no sku)'} — ${(prod.title || '').slice(0, 44)}`);
+    }
+
+    if (apply && orphansThisPage.length) {
+      const CONC = 5;
+      for (let i = 0; i < orphansThisPage.length; i += CONC) {
+        const chunk = orphansThisPage.slice(i, i + CONC);
+        await Promise.all(chunk.map(p =>
+          setProductDraft(p.id).then(() => { result.drafted++; }).catch(e => result.errors.push(`${p.id}: ${e.message}`))
+        ));
+      }
+    }
+
+    cursor = nextCursor;
+  } while (cursor);
+
+  return result;
+}
+
+/**
+ * Translate each order line item's stored SKU (the Shopify variant SKU, which holds the
+ * manufacturer part number) into the numeric TD Synnex catalog ID required by the order API.
+ * Numeric values are already catalog IDs and pass through untouched. Throws if any line
+ * item can't be resolved — better to fail the order loudly than submit an unshippable
+ * non-stock quote.
+ *
+ * @param {Array<{synnexSku:string, quantity:number, unitPrice:number, title:string}>} lineItems
+ * @returns {Promise<Array>} line items with synnexSku set to the numeric catalog ID
+ */
+async function resolveLineItemSkus(lineItems) {
+  return Promise.all((lineItems || []).map(async (li) => {
+    const stored = String(li.synnexSku || '').trim();
+    if (/^\d+$/.test(stored)) return li; // already a numeric catalog ID
+    const product = await getProductByMfrPart(stored);
+    const resolved = String(product?.synnexSku || '').trim();
+    if (!/^\d+$/.test(resolved)) {
+      throw new Error(
+        `Could not resolve TD Synnex catalog ID for SKU "${stored}" (${li.title || 'item'}). ` +
+        `Order not submitted to avoid a non-stock quote.`
+      );
+    }
+    return { ...li, synnexSku: resolved };
+  }));
+}
+
+/**
  * submit-orders: Pick up pending orders from DynamoDB and submit them to TD Synnex.
  * Runs every 5 minutes via EventBridge.
  */
@@ -678,10 +1079,16 @@ async function runSubmitOrders() {
 
   for (const stateOrder of toProcess) {
     try {
+      // The webhook stores the Shopify variant SKU (= manufacturer part number) on each
+      // line item. TD Synnex's order API only accepts the numeric internal catalog ID
+      // (synnexSku) — submitting an MfgPN gets filed as a non-stock quote that never ships.
+      // Resolve each line item to its numeric synnexSku here before submitting.
+      const lineItems = await resolveLineItemSkus(stateOrder.lineItems);
+
       const submitResult = await submitOrder({
         poNumber: stateOrder.poNumber,
         shipTo: stateOrder.shipTo,
-        lineItems: stateOrder.lineItems,
+        lineItems,
       });
       await markSubmitted(stateOrder.shopifyOrderId, { synnexOrderId: submitResult.synnexOrderId });
       result.submitted += 1;
@@ -732,6 +1139,158 @@ async function runCheckTracking() {
       result.errors.push(`${stateOrder.shopifyOrderName}: ${e.message}`);
     }
   }
+
+  return result;
+}
+
+// ─── Returns / RMA Jobs ───────────────────────────────────────────────────────
+// Sibling of submit-orders / check-tracking, for the return side. Both jobs no-op
+// gracefully until the TD SYNNEX RMA endpoint+spec is configured (isRmaConfigured()).
+
+/**
+ * Resolve a return's line items to the numeric TD SYNNEX catalog IDs the RMA API needs,
+ * by mapping against the original order record (same numeric-SKU resolution as orders).
+ * SPEC TODO: support partial-line returns; currently applies the return reason to all
+ * resolved order items (covers the common full-item return).
+ */
+async function resolveReturnLineItems(ret, order) {
+  const orderItems = order?.lineItems?.length ? await resolveLineItemSkus(order.lineItems) : [];
+  if (orderItems.length === 0) {
+    throw new Error('Original order not found or has no line items to map for the RMA');
+  }
+  const reason = ret.reason || 'OTHER';
+  return orderItems.map(li => ({ synnexSku: li.synnexSku, quantity: li.quantity, reason }));
+}
+
+/**
+ * submit-rmas: Open TD SYNNEX RMAs for newly requested returns. (EventBridge schedule.)
+ */
+async function runSubmitRmas() {
+  const result = { processed: 0, submitted: 0, errors: [] };
+  if (!isRmaConfigured()) {
+    result.note = 'RMA endpoint not configured — awaiting TD SYNNEX RMA spec (SYNNEX_RMA_URL)';
+    return result;
+  }
+  const toProcess = [
+    ...(await returnsState.getReturnsByStatus('requested')),
+    ...(await returnsState.getReturnsByStatus('error')),
+  ];
+  result.processed = toProcess.length;
+  for (const ret of toProcess) {
+    try {
+      const order = ret.shopifyOrderId ? await getOrder(ret.shopifyOrderId) : null;
+      const lineItems = await resolveReturnLineItems(ret, order);
+      const r = await createRma({ poNumber: ret.poNumber, synnexOrderId: ret.synnexOrderId, lineItems });
+      await returnsState.markRmaRequested(ret.shopifyReturnId, { rmaNumber: r.rmaNumber, synnexRmaStatus: r.status });
+      // TODO (post-spec): relay r.returnLabelUrl / RMA number back to the customer.
+      result.submitted += 1;
+    } catch (e) {
+      await returnsState.markError(ret.shopifyReturnId, e.message).catch(() => {});
+      result.errors.push(`${ret.shopifyReturnId}: ${e.message}`);
+    }
+  }
+  return result;
+}
+
+/**
+ * check-rma: Poll TD SYNNEX RMA status; when received/credited, close out the return.
+ * (EventBridge schedule — sibling of check-tracking.)
+ */
+async function runCheckRma() {
+  const result = { checked: 0, received: 0, errors: [] };
+  if (!isRmaConfigured()) {
+    result.note = 'RMA endpoint not configured — awaiting TD SYNNEX RMA spec (SYNNEX_RMA_STATUS_URL)';
+    return result;
+  }
+  const open = await returnsState.getReturnsByStatus('rma_requested');
+  result.checked = open.length;
+  for (const ret of open) {
+    try {
+      const s = await checkRmaStatus({ rmaNumber: ret.rmaNumber, poNumber: ret.poNumber });
+      // SPEC TODO: confirm which status string means received/credited.
+      if (/receiv|credit|complet|closed/i.test(s.status)) {
+        await returnsState.markReceived(ret.shopifyReturnId, { synnexRmaStatus: s.status, returnTracking: s.returnTracking });
+        // TODO (post-spec): close the Shopify return + issue the refund via the Returns API (write_returns).
+        result.received += 1;
+      }
+    } catch (e) {
+      result.errors.push(`${ret.shopifyReturnId}: ${e.message}`);
+    }
+  }
+  return result;
+}
+
+// ─── Clean Home Appliances ────────────────────────────────────────────────────
+
+/**
+ * clean-home-appliances: Delete all Shopify products tagged "home-appliances"
+ * and remove them from DynamoDB. Safe to re-run.
+ *
+ * Direct invoke: { "job": "clean-home-appliances" }
+ */
+async function runCleanHomeAppliances() {
+  const { graphql } = require('./shopify/auth');
+  const { DynamoDBClient, DeleteItemCommand, ScanCommand } = require('@aws-sdk/client-dynamodb');
+  const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
+
+  const result = { scannedShopify: 0, deletedShopify: 0, deletedDynamo: 0, errors: [] };
+
+  const LIST = `
+    query listByTag($cursor: String) {
+      products(first: 250, after: $cursor, query: "tag:home-appliances") {
+        pageInfo { hasNextPage endCursor }
+        nodes { id variants(first: 1) { nodes { sku } } }
+      }
+    }
+  `;
+  const DELETE = `
+    mutation productDelete($input: ProductDeleteInput!) {
+      productDelete(input: $input) {
+        deletedProductId
+        userErrors { message }
+      }
+    }
+  `;
+
+  const dynamodb = new DynamoDBClient({});
+  const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE;
+
+  let cursor = null;
+  do {
+    const data = await graphql(LIST, cursor ? { cursor } : {});
+    const page = data?.products;
+    if (!page) break;
+
+    result.scannedShopify += page.nodes.length;
+
+    await Promise.all(page.nodes.map(async (p) => {
+      try {
+        const del = await graphql(DELETE, { input: { id: p.id } });
+        const errs = del?.productDelete?.userErrors || [];
+        if (errs.length) {
+          result.errors.push(`${p.id}: ${errs.map(e => e.message).join('; ')}`);
+        } else {
+          result.deletedShopify += 1;
+          // Remove from DynamoDB by SKU
+          const sku = p.variants?.nodes?.[0]?.sku;
+          if (sku && PRODUCTS_TABLE) {
+            try {
+              await dynamodb.send(new DeleteItemCommand({
+                TableName: PRODUCTS_TABLE,
+                Key: marshall({ synnexSku: sku }),
+              }));
+              result.deletedDynamo += 1;
+            } catch (_) {}
+          }
+        }
+      } catch (e) {
+        result.errors.push(`${p.id}: ${e.message}`);
+      }
+    }));
+
+    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+    if (cursor) await new Promise(r => setTimeout(r, 300));
+  } while (cursor);
 
   return result;
 }
@@ -801,6 +1360,595 @@ async function runCleanCollections() {
   }
 
   return result;
+}
+
+/**
+ * clean-software: Delete all Shopify products tagged "software". Safe to re-run.
+ */
+async function runCleanSoftware() {
+  const { graphql } = require('./shopify/auth');
+  const result = { scanned: 0, deleted: 0, errors: 0 };
+
+  const LIST = `
+    query($cursor: String) {
+      products(first: 250, after: $cursor, query: "tag:software") {
+        pageInfo { hasNextPage endCursor }
+        nodes { id }
+      }
+    }
+  `;
+  const DELETE = `
+    mutation productDelete($input: ProductDeleteInput!) {
+      productDelete(input: $input) { deletedProductId userErrors { message } }
+    }
+  `;
+
+  let cursor = null;
+  do {
+    const data = await graphql(LIST, cursor ? { cursor } : {});
+    const page = data?.products;
+    if (!page) break;
+    result.scanned += page.nodes.length;
+
+    await Promise.all(page.nodes.map(async (p) => {
+      try {
+        const del = await graphql(DELETE, { input: { id: p.id } });
+        const errs = del?.productDelete?.userErrors || [];
+        if (errs.length) result.errors++;
+        else result.deleted++;
+      } catch (e) { result.errors++; }
+    }));
+
+    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+  } while (cursor);
+
+  console.log(`[clean-software] complete: ${JSON.stringify(result)}`);
+  return result;
+}
+
+/**
+ * fix-monitor-accessories: Products miscategorized as type "Monitors" that are actually accessories
+ * (cables, adapters, carts, mounts, stands, filters, docks, hubs, splitters).
+ * Moves them to type "Computer Accessories" + computer-accessories tag.
+ */
+async function runFixMonitorAccessories() {
+  const { graphql } = require('./shopify/auth');
+  const ACCESSORY_PATTERN = /cable|adapter|converter|dock|hub|cart|mount|bracket|stand|arm|kvm|splitter|switch|extender|filter|scaler|selector/i;
+  const result = { scanned: 0, updated: 0, skipped: 0, errors: 0 };
+
+  const LIST = `
+    query($cursor: String) {
+      products(first: 250, after: $cursor, query: "product_type:Monitors") {
+        pageInfo { hasNextPage endCursor }
+        nodes { id title tags }
+      }
+    }
+  `;
+  const UPDATE = `
+    mutation productUpdate($input: ProductInput!) {
+      productUpdate(input: $input) {
+        product { id }
+        userErrors { message }
+      }
+    }
+  `;
+
+  let cursor = null;
+  do {
+    const data = await graphql(LIST, cursor ? { cursor } : {});
+    const page = data?.products;
+    if (!page) break;
+
+    await Promise.all(page.nodes.map(async (p) => {
+      result.scanned++;
+      if (!ACCESSORY_PATTERN.test(p.title)) { result.skipped++; return; }
+
+      const newTags = p.tags
+        .filter(t => t !== 'monitors-projectors' && t !== 'monitor')
+        .concat(['computer-accessories']);
+
+      try {
+        const res = await graphql(UPDATE, {
+          input: { id: p.id, productType: 'Computer Accessories', tags: newTags },
+        });
+        const errs = res?.productUpdate?.userErrors || [];
+        if (errs.length) { result.errors++; }
+        else { result.updated++; }
+      } catch (e) { result.errors++; }
+    }));
+
+    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+  } while (cursor);
+
+  console.log(`[fix-monitor-accessories] complete: ${JSON.stringify(result)}`);
+  return result;
+}
+
+/**
+ * fix-display-cables: Re-tag all "Display Cables" products from monitors-projectors → computer-accessories.
+ * Safe to re-run.
+ */
+async function runFixDisplayCables() {
+  const { graphql } = require('./shopify/auth');
+  const result = { scanned: 0, updated: 0, skipped: 0, errors: 0 };
+
+  const LIST = `
+    query listDisplayCables($cursor: String) {
+      products(first: 250, after: $cursor, query: "product_type:'Display Cables'") {
+        pageInfo { hasNextPage endCursor }
+        nodes { id tags }
+      }
+    }
+  `;
+  const UPDATE_TAGS = `
+    mutation productUpdate($input: ProductInput!) {
+      productUpdate(input: $input) {
+        product { id tags }
+        userErrors { message }
+      }
+    }
+  `;
+
+  let cursor = null;
+  do {
+    const data = await graphql(LIST, cursor ? { cursor } : {});
+    const page = data?.products;
+    if (!page) break;
+
+    await Promise.all(page.nodes.map(async (p) => {
+      result.scanned++;
+      const hasWrong = p.tags.includes('monitors-projectors');
+      const hasRight = p.tags.includes('computer-accessories');
+      if (!hasWrong && hasRight) { result.skipped++; return; }
+
+      const newTags = p.tags
+        .filter(t => t !== 'monitors-projectors')
+        .concat(hasRight ? [] : ['computer-accessories']);
+
+      try {
+        const res = await graphql(UPDATE_TAGS, { input: { id: p.id, tags: newTags } });
+        const errs = res?.productUpdate?.userErrors || [];
+        if (errs.length) { result.errors++; }
+        else { result.updated++; }
+      } catch (e) {
+        result.errors++;
+      }
+    }));
+
+    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+  } while (cursor);
+
+  console.log(`[fix-display-cables] complete: ${JSON.stringify(result)}`);
+  return result;
+}
+
+/**
+ * draft-pack-errors: Scan all Shopify products for suspiciously low prices and
+ * set them to DRAFT (hidden from storefront). Skips products already draft.
+ * Safe to invoke multiple times — idempotent.
+ * Runs in batches to stay within Lambda timeout; invoke repeatedly until done.
+ *
+ * Direct invoke: { "job": "draft-pack-errors" }
+ */
+async function runDraftPackErrors() {
+  const { graphql } = require('./shopify/auth');
+  const result = { scanned: 0, drafted: 0, skipped: 0, errors: 0 };
+
+  const CHEAP_PATTERNS = [
+    /\bcat\s*[56]\b/i, /patch\s*cab/i, /\bRJ.?(11|45)\b/i,
+    /modular.*coupl/i, /inline\s+coupl/i, /wall\s*plate/i,
+    /faceplate/i, /keystone/i, /cable\s*tie/i, /velcro/i,
+    /telephone.*cab/i, /phone\s*cab/i,
+  ];
+
+  const LIST = `
+    query($cursor: String) {
+      products(first: 250, after: $cursor, query: "status:active") {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id title status
+          variants(first: 1) { nodes { price compareAtPrice } }
+        }
+      }
+    }
+  `;
+  const DRAFT = `
+    mutation($id: ID!) {
+      productUpdate(input: { id: $id, status: DRAFT }) {
+        product { id }
+        userErrors { message }
+      }
+    }
+  `;
+
+  const startedAt = Date.now();
+  const TIMEOUT_MS = 540000; // stop 60s before Lambda hard limit
+
+  let cursor = null;
+  do {
+    if (Date.now() - startedAt > TIMEOUT_MS) {
+      console.log('[draft-pack-errors] approaching timeout, stopping — invoke again to continue');
+      break;
+    }
+
+    const data = await graphql(LIST, cursor ? { cursor } : {});
+    const page = data?.products;
+    if (!page) break;
+
+    for (const p of page.nodes) {
+      result.scanned++;
+      const v = p.variants?.nodes?.[0];
+      if (!v) continue;
+
+      const price     = parseFloat(v.price || '0');
+      const compareAt = parseFloat(v.compareAtPrice || '0');
+      if (price <= 0) continue;
+      if (CHEAP_PATTERNS.some(re => re.test(p.title))) continue;
+
+      const flagged = (compareAt > 0 && price < compareAt * 0.15) || price < 2.00;
+      if (!flagged) continue;
+
+      try {
+        const res = await graphql(DRAFT, { id: p.id });
+        const errs = res?.productUpdate?.userErrors || [];
+        if (errs.length) result.errors++;
+        else result.drafted++;
+      } catch (e) {
+        result.errors++;
+      }
+    }
+
+    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+  } while (cursor);
+
+  console.log(`[draft-pack-errors] complete: ${JSON.stringify(result)}`);
+  return result;
+}
+
+/**
+ * find-pack-errors: Scan Shopify for products with suspiciously low prices —
+ * typically caused by pack items where the catalog price wasn't multiplied by
+ * the inner pack quantity. Reports up to 250 affected products.
+ *
+ * A product is flagged when:
+ *   - compareAtPrice exists AND price < compareAtPrice × 0.15  (>85% off MSRP)
+ *   - OR price < $2.00 for any product (absolute floor)
+ *
+ * Direct invoke: { "job": "find-pack-errors" }
+ */
+async function runFindPackErrors() {
+  const { graphql } = require('./shopify/auth');
+  const result = { scanned: 0, flagged: [], errors: 0 };
+
+  const LIST = `
+    query($cursor: String) {
+      products(first: 250, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id title productType
+          variants(first: 1) {
+            nodes { price compareAtPrice sku }
+          }
+        }
+      }
+    }
+  `;
+
+  let cursor = null;
+  do {
+    const data = await graphql(LIST, cursor ? { cursor } : {});
+    const page = data?.products;
+    if (!page) break;
+
+    for (const p of page.nodes) {
+      result.scanned++;
+      const v = p.variants?.nodes?.[0];
+      if (!v) continue;
+      const price = parseFloat(v.price || '0');
+      const compareAt = parseFloat(v.compareAtPrice || '0');
+
+      const tooFarBelowMsrp = compareAt > 0 && price < compareAt * 0.15;
+      const absolutelyTooLow = price > 0 && price < 2.00;
+
+      if (tooFarBelowMsrp || absolutelyTooLow) {
+        result.flagged.push({
+          id: p.id,
+          title: p.title.slice(0, 60),
+          productType: p.productType,
+          sku: v.sku,
+          price,
+          compareAtPrice: compareAt || null,
+          reason: absolutelyTooLow ? 'price<$2' : `price is ${Math.round(price/compareAt*100)}% of MSRP`,
+        });
+      }
+    }
+
+    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+    if (cursor) await new Promise(r => setTimeout(r, 200));
+  } while (cursor && result.scanned < 50000); // cap at 50k to avoid Lambda timeout
+
+  console.log(`[find-pack-errors] scanned=${result.scanned} flagged=${result.flagged.length}`);
+  return result;
+}
+
+/**
+ * image-backfill: For each Shopify product with no images, query Icecat and attach any found images.
+ * Reads all products from DynamoDB, batches Icecat lookups, updates Shopify.
+ * Safe to re-run (skips products that already have images).
+ *
+ * Direct invoke: { "job": "image-backfill" }
+ * Optional:      { "job": "image-backfill", "limit": 500 }
+ */
+async function runImageBackfill(event) {
+  const { graphql } = require('./shopify/auth');
+  const { getAllProducts } = require('./catalog/products');
+
+  const limit = event?.limit || 2000;
+  const CONCURRENCY = 5;
+  const result = { scanned: 0, attempted: 0, updated: 0, skipped: 0, errors: 0 };
+
+  const GET_PRODUCT_IMAGES = `
+    query getImages($id: ID!) {
+      product(id: $id) {
+        id
+        descriptionHtml
+        media(first: 1) { nodes { id } }
+        metafield(namespace: "custom", key: "spec_sheet") { value }
+        variants(first: 1) { nodes { sku } }
+      }
+    }
+  `;
+
+  const CREATE_MEDIA = `
+    mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+      productCreateMedia(productId: $productId, media: $media) {
+        media { ... on MediaImage { id image { url } } }
+        mediaUserErrors { code field message }
+      }
+    }
+  `;
+
+  const products = await getAllProducts();
+  const eligible = products
+    .filter(p => p.shopifyProductId && p.mfrPartNumber && p.manufacturer)
+    .slice(0, limit);
+
+  result.scanned = eligible.length;
+
+  for (let i = 0; i < eligible.length; i += CONCURRENCY) {
+    const batch = eligible.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(async (p) => {
+      try {
+        const productGid = p.shopifyProductId.startsWith('gid://')
+          ? p.shopifyProductId
+          : `gid://shopify/Product/${p.shopifyProductId}`;
+        const existing = await graphql(GET_PRODUCT_IMAGES, { id: productGid });
+        const prod = existing?.product;
+        if (!prod) { result.skipped++; return; }
+
+        const hasImages   = (prod.media?.nodes?.length ?? 0) > 0;
+        const hasDesc     = (prod.descriptionHtml || '').trim().length > 0;
+        const hasSpecs    = !!prod.metafield?.value;
+
+        // Skip products that already have everything
+        if (hasImages && hasDesc && hasSpecs) { result.skipped++; return; }
+
+        result.attempted++;
+        const icecat = await fetchIcecatProduct({
+          brand: normalizeBrand(p.manufacturer),
+          partNumber: p.mfrPartNumber,
+          upc: p.upc,
+        });
+        if (!icecat) { result.skipped++; return; }
+
+        // Attach images if missing
+        if (!hasImages && icecat.images.length > 0) {
+          const media = icecat.images.slice(0, 5).map(url => ({
+            mediaContentType: 'IMAGE',
+            originalSource: url,
+          }));
+          const res = await graphql(CREATE_MEDIA, { productId: productGid, media });
+          const errs = res?.productCreateMedia?.mediaUserErrors || [];
+          if (errs.length) result.errors++;
+        }
+
+        // Write description and/or specs if missing
+        const contentUpdate = {};
+        if (!hasDesc && icecat.description) contentUpdate.description = icecat.description;
+        if (!hasSpecs && icecat.specs?.length > 0) contentUpdate.specs = icecat.specs;
+
+        if (Object.keys(contentUpdate).length > 0) {
+          await updateProductContent(productGid, contentUpdate).catch(() => result.errors++);
+        }
+
+        result.updated++;
+      } catch (e) {
+        result.errors++;
+      }
+    }));
+  }
+
+  console.log(`[image-backfill] complete: ${JSON.stringify(result)}`);
+  return result;
+}
+
+/**
+ * Consumer brands with strong Icecat coverage. The catalog is ~80% enterprise/
+ * infrastructure/software (HPE, Cisco, Extreme, Veeam, Panduit, Chatsworth…) that
+ * Icecat barely covers; targeting these brands keeps the enrichment hit-rate high
+ * (~40-50% on the free tier) instead of burning calls on absent SKUs.
+ * Matched case-insensitively as a prefix/substring of the catalog manufacturer.
+ */
+const ENRICH_BRAND_ALLOWLIST = [
+  'HP INC', 'HEWLETT PACKARD', 'LENOVO', 'DELL', 'LOGITECH', 'SAMSUNG', 'ASUS', 'ACER',
+  'APPLE', 'NVIDIA', 'GETAC', 'EPSON', 'BROTHER', 'CANON', 'TARGUS', 'KENSINGTON', 'BELKIN',
+  'TP-LINK', 'NETGEAR', 'D-LINK', 'RAZER', 'CORSAIR', 'STEELSERIES', 'VIEWSONIC', 'BENQ',
+  'AOC', 'MSI', 'JABRA', 'POLY', 'SEAGATE', 'WESTERN DIGITAL', 'KINGSTON', 'CRUCIAL',
+  'SANDISK', 'INTEL', 'AMD', 'TOSHIBA', 'DYNABOOK', 'SONY', 'LG ELECTRON', 'VERBATIM',
+  'WACOM', 'ELGATO', 'ANKER', 'INTELLINET', 'DA-LITE',
+];
+function isEnrichBrand(manufacturer) {
+  const m = (manufacturer || '').toUpperCase();
+  return ENRICH_BRAND_ALLOWLIST.some(b => m.includes(b));
+}
+
+/**
+ * Free Open Icecat returns images + title + specs but gates the prose description
+ * (Full-Icecat only). When there's no description but we do have specs, synthesize
+ * a clean HTML description from the key specs so product pages still read well.
+ */
+function specsToDescriptionHtml(title, specs) {
+  const flat = [];
+  for (const group of specs || []) {
+    for (const sp of group.specs || []) {
+      if (sp.name && sp.value) flat.push([sp.name, sp.value]);
+    }
+  }
+  if (flat.length === 0) return null;
+  const rows = flat.slice(0, 18)
+    .map(([n, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#666">${n}</td><td style="padding:4px 0">${v}</td></tr>`)
+    .join('');
+  const lead = title ? `<p>${title}</p>` : '';
+  return `${lead}<table style="border-collapse:collapse;font-size:14px">${rows}</table>`;
+}
+
+/**
+ * targeted-enrich: resumable, scheduled Icecat enrichment for the marketable,
+ * high-coverage consumer-brand hardware. For each ACTIVE Shopify product in the
+ * brand allowlist that's missing content, it fetches Icecat and fills in a clean
+ * title, images, description, and spec sheet — then tags products that end up with
+ * BOTH an image and a description `featured` so they can be floated to the top of
+ * each collection (the "nice browsing experience" pass).
+ *
+ * Resumable: persists its DynamoDB scan cursor + running stats in a jobstate row,
+ * so an EventBridge schedule can drive it to completion across many 15-min invokes.
+ * Each invoke stops ~90s before the Lambda timeout and saves progress.
+ *
+ *   { "job": "targeted-enrich" }            # resume (or start) the run
+ *   { "job": "targeted-enrich", "reset": true }   # restart from the beginning
+ *   { "job": "targeted-enrich", "status": true }  # just report saved progress
+ */
+async function runTargetedEnrich(event = {}) {
+  const { graphql } = require('./shopify/auth');
+  const STATE_KEY = 'targeted-enrich';
+  const CONCURRENCY = 8;
+  const DEADLINE_MS = (config.sync.timeoutSeconds || 510) * 1000;
+  const startedAt = Date.now();
+
+  let state = (await getJobState(STATE_KEY)) || null;
+  if (event.status) return { state: state || 'not-started' };
+  if (event.reset || !state) {
+    state = { cursor: null, done: false, stats: { scanned: 0, candidates: 0, active: 0, enriched: 0, featured: 0, noData: 0, skipped: 0, errors: 0 }, startedAt: new Date().toISOString() };
+  }
+  if (state.done) return { alreadyComplete: true, state };
+  const s = state.stats;
+
+  const GET = `query($id: ID!) {
+    product(id: $id) {
+      id status title descriptionHtml
+      media(first: 1) { nodes { id } }
+      metafield(namespace: "custom", key: "spec_sheet") { value }
+    }
+  }`;
+  const CREATE_MEDIA = `mutation($productId: ID!, $media: [CreateMediaInput!]!) {
+    productCreateMedia(productId: $productId, media: $media) { mediaUserErrors { message } }
+  }`;
+  const UPDATE = `mutation($input: ProductInput!) {
+    productUpdate(input: $input) { product { id } userErrors { message } }
+  }`;
+  const TAGS_ADD = `mutation($id: ID!, $tags: [String!]!) {
+    tagsAdd(id: $id, tags: $tags) { userErrors { message } }
+  }`;
+
+  async function processOne(p) {
+    try {
+      const gid = p.shopifyProductId.startsWith('gid://') ? p.shopifyProductId : `gid://shopify/Product/${p.shopifyProductId}`;
+      const prod = (await graphql(GET, { id: gid }))?.product;
+      if (!prod) { s.skipped++; return; }
+      if (prod.status !== 'ACTIVE') { s.skipped++; return; }      // only enrich live products
+      s.active++;
+
+      const hasImages = (prod.media?.nodes?.length ?? 0) > 0;
+      const hasDesc   = (prod.descriptionHtml || '').trim().length > 0;
+      const hasSpecs  = !!prod.metafield?.value;
+
+      if (hasImages && hasDesc && hasSpecs) {            // already complete — just ensure featured tag
+        if (hasImages && hasDesc) { await graphql(TAGS_ADD, { id: gid, tags: ['featured'] }); s.featured++; }
+        s.skipped++; return;
+      }
+
+      const icecat = await fetchIcecatProduct({ brand: normalizeBrand(p.manufacturer), partNumber: p.mfrPartNumber, upc: p.upc });
+      if (!icecat) { s.noData++; return; }
+
+      // Title + description + specs via productUpdate
+      const input = { id: gid };
+      if (icecat.title && icecat.title.length > 5) input.title = truncateTitle(icecat.title);
+      // Prefer Icecat's prose description (Full tier); else synthesize one from specs (free tier).
+      if (!hasDesc) {
+        const desc = icecat.description || specsToDescriptionHtml(icecat.title, icecat.specs);
+        if (desc) input.descriptionHtml = desc;
+      }
+      if (!hasSpecs && icecat.specs?.length > 0) {
+        input.metafields = [{ namespace: 'custom', key: 'spec_sheet', type: 'json', value: JSON.stringify(icecat.specs) }];
+      }
+      if (Object.keys(input).length > 1) {
+        const u = await graphql(UPDATE, { input });
+        if (u?.productUpdate?.userErrors?.length) s.errors++;
+      }
+
+      // Images via productCreateMedia
+      let gotImages = false;
+      if (!hasImages && icecat.images?.length > 0) {
+        const media = icecat.images.slice(0, 5).map(url => ({ mediaContentType: 'IMAGE', originalSource: url }));
+        const m = await graphql(CREATE_MEDIA, { productId: gid, media });
+        if (m?.productCreateMedia?.mediaUserErrors?.length) s.errors++; else gotImages = true;
+      }
+
+      s.enriched++;
+      // Feature products that now have an image (which on the free tier also means a
+      // clean title + spec-derived description + spec sheet) — these are the ones worth
+      // floating to the top of each collection for a clean browsing experience.
+      const nowHasImage = hasImages || gotImages;
+      const nowHasDesc  = hasDesc || !!(input.descriptionHtml);
+      if (nowHasImage && nowHasDesc) { await graphql(TAGS_ADD, { id: gid, tags: ['featured'] }); s.featured++; }
+    } catch (e) {
+      s.errors++;
+    }
+  }
+
+  // Optional safety cap on how many candidates to process this invoke (for test runs).
+  const maxCandidates = Number.isFinite(event.maxCandidates) ? event.maxCandidates : Infinity;
+  let processedThisRun = 0;
+
+  // Drive the resumable scan until the time budget is spent or the table is exhausted.
+  let cursor = state.cursor || undefined;
+  while (true) {
+    if (Date.now() - startedAt > DEADLINE_MS || processedThisRun >= maxCandidates) { state.cursor = cursor || null; break; }
+    const { items, lastKey } = await scanProductsPage({ exclusiveStartKey: cursor, limit: 400 });
+    s.scanned += items.length;
+    let candidates = items.filter(p => {
+      if (!(p.shopifyProductId && p.mfrPartNumber && p.manufacturer && isEnrichBrand(p.manufacturer))) return false;
+      // Never enrich/feature non-physical items (warranties, support, services, software) —
+      // those should be hidden, not surfaced. categorize flags them as services/software.
+      const g = categorize({ unspsc: p.unspsc, description: p.description, category: p.category, manufacturer: p.manufacturer }).group;
+      if (g === 'services' || g === 'software') { s.skippedNonPhysical = (s.skippedNonPhysical || 0) + 1; return false; }
+      return true;
+    });
+    if (processedThisRun + candidates.length > maxCandidates) candidates = candidates.slice(0, maxCandidates - processedThisRun);
+    s.candidates += candidates.length;
+    for (let i = 0; i < candidates.length; i += CONCURRENCY) {
+      await Promise.all(candidates.slice(i, i + CONCURRENCY).map(processOne));
+    }
+    processedThisRun += candidates.length;
+    cursor = lastKey;
+    if (!lastKey) { state.done = true; state.cursor = null; break; }
+    state.cursor = cursor;
+    await putJobState(STATE_KEY, state);   // checkpoint each page
+  }
+
+  await putJobState(STATE_KEY, state);
+  console.log(`[targeted-enrich] ${state.done ? 'COMPLETE' : 'checkpoint'}: ${JSON.stringify(s)}`);
+  return { done: state.done, stats: s, elapsedMs: Date.now() - startedAt };
 }
 
 // ─── Lambda Entry Point ───────────────────────────────────────────────────────
@@ -978,29 +2126,34 @@ exports.handler = async (event) => {
     }
   }
 
-  // Scan catalog and return all unique brands + categories (debug/setup)
-  if (event?.job === 'scan-catalog') {
-    if (!isSftpConfigured()) return jsonResponse(isHttp, 400, { error: 'SFTP not configured' });
+  // Shopify returns/* webhook — capture a return request and queue it for an RMA.
+  // Register topics returns/request and/or returns/approve to this address.
+  if (method === 'POST' && path.endsWith('/webhook/returns')) {
+    const rawBody = event.body || '';
+    const hmac = event.headers?.['x-shopify-hmac-sha256'];
+    if (!verifyWebhook(rawBody, hmac)) {
+      return { statusCode: 401, body: 'Unauthorized' };
+    }
     try {
-      const brands = new Map();   // brand → count
-      const categories = new Map(); // category → count
-      let parseLine;
-      await streamCatalogLines({
-        onHeader(h) { parseLine = createLineParser(h); },
-        onRow(line) {
-          const p = parseLine(line);
-          if (!p) return true;
-          if (p.manufacturer) brands.set(p.manufacturer, (brands.get(p.manufacturer) || 0) + 1);
-          if (p.category)     categories.set(p.category, (categories.get(p.category) || 0) + 1);
-          return true;
-        },
+      const ret = parseReturnWebhook(JSON.parse(rawBody));
+      // Enrich with the original order's PO + TD SYNNEX order number for the RMA call.
+      const order = ret.shopifyOrderId ? await getOrder(ret.shopifyOrderId) : null;
+      await returnsState.saveReturn({
+        ...ret,
+        shopifyOrderName: order?.shopifyOrderName || '',
+        poNumber: order?.poNumber || '',
+        synnexOrderId: order?.synnexOrderId || '',
       });
-      const sort = (m) => [...m.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
-      return jsonResponse(isHttp, 200, { brands: sort(brands), categories: sort(categories) });
+      console.log(`[webhook/returns] Queued return ${ret.shopifyReturnId} for order ${ret.shopifyOrderId} (${ret.lineItems.length} items)`);
+      return { statusCode: 200, body: 'OK' };
     } catch (e) {
-      return jsonResponse(isHttp, 500, { error: e.message });
+      if (e.name === 'ConditionalCheckFailedException') return { statusCode: 200, body: 'Already queued' };
+      console.error('[webhook/returns] Error:', e.message);
+      return { statusCode: 500, body: e.message };
     }
   }
+
+  // scan-catalog is handled by the main job dispatcher below (runScanCatalog)
 
   // Peek first 5 lines of catalog file (debug)
   if (event?.job === 'peek-catalog') {
@@ -1084,7 +2237,7 @@ exports.handler = async (event) => {
   if (method === 'POST' && path.endsWith('/shipping-rates')) {
     try {
       const body = event.body ? JSON.parse(event.body) : {};
-      const rates = calculateRates(body);
+      const rates = await calculateRates(body);
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -1117,11 +2270,25 @@ exports.handler = async (event) => {
     if (job === 'catalog-sync')           result = await runCatalogSync(event);
     else if (job === 'targeted-discover') result = await runTargetedDiscover(event);
     else if (job === 'scan-catalog')      result = await runScanCatalog();
+    else if (job === 'fix-publications')  result = await runFixPublications();
+    else if (job === 'fix-product-types') result = await runFixProductTypes();
+    else if (job === 'fix-mice-cleanup')  result = await runFixMiceCleanup();
     else if (job === 'price-sync')        result = await runPriceSync();
     else if (job === 'refresh-featured')  result = await runRefreshFeatured();
-    else if (job === 'clean-collections') result = await runCleanCollections();
+    else if (job === 'clean-collections')     result = await runCleanCollections();
+    else if (job === 'clean-home-appliances') result = await runCleanHomeAppliances();
+    else if (job === 'clean-software')        result = await runCleanSoftware();
+    else if (job === 'image-backfill')        result = await runImageBackfill(event);
+    else if (job === 'targeted-enrich')       result = await runTargetedEnrich(event);
+    else if (job === 'find-pack-errors')         result = await runFindPackErrors();
+    else if (job === 'draft-pack-errors')        result = await runDraftPackErrors();
+    else if (job === 'fix-display-cables')       result = await runFixDisplayCables();
+    else if (job === 'fix-monitor-accessories')  result = await runFixMonitorAccessories();
     else if (job === 'submit-orders')     result = await runSubmitOrders();
     else if (job === 'check-tracking')    result = await runCheckTracking();
+    else if (job === 'submit-rmas')       result = await runSubmitRmas();
+    else if (job === 'check-rma')         result = await runCheckRma();
+    else if (job === 'reconcile-listings') result = await runReconcileListings({ apply: event?.apply === true, startCursor: event?.startCursor });
     else result = { error: `Unknown job: ${job}` };
 
     const hasErrors = result.errors?.length > 0 || result.error;
