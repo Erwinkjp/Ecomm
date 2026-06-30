@@ -1,3 +1,8 @@
+{%- comment -%} /collections is intentionally hidden — send visitors to the curated all-products page. {%- endcomment -%}
+<meta http-equiv="refresh" content="0; url=/collections/all-products">
+<script>window.location.replace('/collections/all-products');</script>
+<noscript><p style="padding:3rem;text-align:center"><a href="/collections/all-products">Continue to all products →</a></p></noscript>
+
 {{ 'component-card.css' | asset_url | stylesheet_tag }}
 {{ 'section-collection-list.css' | asset_url | stylesheet_tag }}
 

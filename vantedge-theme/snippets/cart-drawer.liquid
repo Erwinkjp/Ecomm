@@ -518,6 +518,22 @@
             <p class="totals__total-value">{{ cart.total_price | money_with_currency }}</p>
           </div>
 
+          {%- comment -%} B2B savings vs retail (flat 5% tier — see deferred upgrade for multi-tier). {%- endcomment -%}
+          {%- if customer.b2b? and cart.total_price > 0 -%}
+            {%- liquid
+              assign b2b_pct = 5
+              assign b2b_denom = 100 | minus: b2b_pct
+              assign b2b_retail = cart.total_price | times: 100 | divided_by: b2b_denom
+              assign b2b_saved = b2b_retail | minus: cart.total_price
+            -%}
+            {%- if b2b_saved > 0 -%}
+              <div class="totals" style="color:#16a34a;font-weight:600;margin-top:4px">
+                <span>{{ 'Your B2B savings' }} ({{ b2b_pct }}%)</span>
+                <span>−{{ b2b_saved | money }}</span>
+              </div>
+            {%- endif -%}
+          {%- endif -%}
+
           <small class="tax-note caption-large rte">
             {%- if cart.duties_included and cart.taxes_included -%}
               {%- if shop.shipping_policy.body == blank -%}
@@ -561,6 +577,13 @@
 
         <!-- CTAs -->
 
+        {%- comment -%} Terms gate: must be checked to enable Checkout. {%- endcomment -%}
+        <div class="cart__terms-agree" style="margin:12px 0;font-size:0.9rem">
+          <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">
+            <input type="checkbox" id="CartDrawer-agree-terms" style="margin-top:3px">
+            <span>I have read and agree to the <a href="/pages/terms-of-service" target="_blank" rel="noopener">Terms &amp; Agreement</a>.</span>
+          </label>
+        </div>
         <div class="cart__ctas" {{ block.shopify_attributes }}>
           <button
             type="submit"
@@ -568,13 +591,29 @@
             class="cart__checkout-button button"
             name="checkout"
             form="CartDrawer-Form"
-            {% if cart == empty %}
-              disabled
-            {% endif %}
+            disabled
           >
             {{ 'sections.cart.checkout' | t }}
           </button>
         </div>
+
+        <script>
+          {%- comment -%} Delegated on document so it survives cart-drawer re-renders. {%- endcomment -%}
+          (function () {
+            if (window.__termsGateBound) return;
+            window.__termsGateBound = true;
+            document.addEventListener('change', function (e) {
+              var t = e.target;
+              if (!t || (t.id !== 'cart-agree-terms' && t.id !== 'CartDrawer-agree-terms')) return;
+              var scope = t.closest('cart-drawer') || document;
+              var ok = t.checked;
+              var btn = scope.querySelector('#checkout, #CartDrawer-Checkout');
+              var dyn = scope.querySelector('.cart__dynamic-checkout-buttons');
+              if (btn) btn.disabled = !ok;
+              if (dyn) { dyn.style.pointerEvents = ok ? 'auto' : 'none'; dyn.style.opacity = ok ? '1' : '0.45'; }
+            });
+          })();
+        </script>
       </div>
     </div>
   </div>

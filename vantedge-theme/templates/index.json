@@ -15,7 +15,7 @@
         "slide_monitors": {
           "type": "slide",
           "settings": {
-            "image": "shopify://shop_images/the-best-monitors-for-2026_u9xw.jpg",
+            "image": "shopify://shop_images/1ad3f743590f0e1a292f61e12b3ddd9f08deaf3b_32d96e3a-ee43-4fb2-8d80-2e94c3a91aff.jpg",
             "title": "Monitors",
             "subtitle": "Crystal-clear displays for every workspace",
             "link": "/collections/monitors",
@@ -64,10 +64,10 @@
         }
       },
       "block_order": [
-        "slide_monitors",
+        "slide_laptops",
         "slide_mobile",
         "slide_gaming",
-        "slide_laptops",
+        "slide_monitors",
         "slide_accessories"
       ],
       "settings": {
@@ -83,6 +83,7 @@
           "type": "brand",
           "settings": {
             "brand_name": "ASUS",
+            "logo": "shopify://shop_images/ASUS_Logo_svg.png",
             "link": "/collections/asus"
           }
         },
@@ -90,6 +91,7 @@
           "type": "brand",
           "settings": {
             "brand_name": "Dell",
+            "logo": "shopify://shop_images/Dell-Logo_svg.png",
             "link": "/collections/dell"
           }
         },
@@ -97,6 +99,7 @@
           "type": "brand",
           "settings": {
             "brand_name": "Lenovo",
+            "logo": "shopify://shop_images/Lenovo__2015__svg.png",
             "link": "/collections/lenovo"
           }
         },
@@ -104,6 +107,7 @@
           "type": "brand",
           "settings": {
             "brand_name": "Apple",
+            "logo": "shopify://shop_images/Apple_logo_black_svg.png",
             "link": "/collections/apple"
           }
         },
@@ -111,6 +115,7 @@
           "type": "brand",
           "settings": {
             "brand_name": "Logitech",
+            "logo": "shopify://shop_images/Logitech_white.png",
             "link": "/collections/logitech"
           }
         },
@@ -118,6 +123,7 @@
           "type": "brand",
           "settings": {
             "brand_name": "Acer",
+            "logo": "shopify://shop_images/Acer_2011_svg.png",
             "link": "/collections/acer"
           }
         }

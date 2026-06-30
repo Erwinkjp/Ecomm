@@ -1,0 +1,12 @@
+{
+  "sections": {
+    "brand_grid": {
+      "type": "brand-grid",
+      "settings": {
+        "heading": "Shop by Brand",
+        "subheading": "Browse products from the brands you trust."
+      }
+    }
+  },
+  "order": ["brand_grid"]
+}

@@ -13,36 +13,9 @@
 
 
 <style>
-  .top-utility-bar {
-    background: #1a1a1a;
-    border-bottom: 1px solid rgba(255,255,255,.08);
-  }
-  .top-utility-bar__list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0;
-    list-style: none;
-    margin: 0;
-    padding: 0 3rem;
-    max-width: var(--page-width);
-    margin-inline: auto;
-  }
-  .top-utility-bar__link {
-    display: block;
-    padding: .55rem 1.2rem;
-    font-size: 1.2rem;
-    color: rgba(255,255,255,.75);
-    text-decoration: none;
-    letter-spacing: .02em;
-    transition: color .15s;
-  }
-  .top-utility-bar__link:hover,
-  .top-utility-bar__link[aria-current="page"] {
-    color: #fff;
-  }
-  @media (max-width: 749px) {
-    .top-utility-bar { display: none; }
-  }
+  /* Utility nav inline in the header row — left-aligned, right after the logo */
+  .header__inline-menu { justify-self: start; }
+  .header__inline-menu .list-menu--inline { justify-content: flex-start; }
 
   header-drawer {
     justify-self: start;
@@ -145,22 +118,8 @@
   endif
 %}
 
-{%- assign top_nav = linklists['top-nav'] -%}
-{%- if top_nav.links.size > 0 -%}
-  <div class="top-utility-bar">
-    <ul class="top-utility-bar__list">
-      {%- for link in top_nav.links -%}
-        <li>
-          <a
-            class="top-utility-bar__link"
-            href="{{ link.url }}"
-            {% if link.current %}aria-current="page"{% endif %}
-          >{{ link.title }}</a>
-        </li>
-      {%- endfor -%}
-    </ul>
-  </div>
-{%- endif -%}
+{%- comment -%} top-nav was a separate dark strip above the header; it's now rendered
+    inline inside the header row (header__inline-menu) to remove the blank space. {%- endcomment -%}
 
 <{{ header_tag }} {% if header_tag == 'sticky-header' %}data-sticky-type="{{ section.settings.sticky_header_type }}"{% endif %} class="header-wrapper color-{{ section.settings.color_scheme }} gradient{% if section.settings.show_line_separator %} header-wrapper--border-bottom{% endif %}">
   {%- liquid
@@ -208,7 +167,12 @@
                 }}
               </div>
             {%- else -%}
-              <span class="h2">{{ shop.name }}</span>
+              <img src="{{ 'uniwide-logo-for-LIGHT-header.svg' | asset_url }}"
+                   alt="{{ shop.name | escape }}"
+                   class="header__heading-logo motion-reduce"
+                   width="322" height="88"
+                   style="height:88px;width:auto;max-width:380px;display:block">
+              <span class="visually-hidden">{{ shop.name }}</span>
             {%- endif -%}
           </a>
       {%- if request.page_type == 'index' -%}
@@ -216,7 +180,25 @@
       {%- endif -%}
     {%- endif -%}
 
-    {%- comment -%}Category nav moved to shop-by-sidebar below the header bar.{%- endcomment -%}
+    {%- comment -%} Utility nav (Home / About / Brands / …) inline in the header row, between logo and icons. {%- endcomment -%}
+    {%- assign top_nav = linklists['top-nav'] -%}
+    {%- if top_nav.links.size > 0 -%}
+      <nav class="header__inline-menu" role="navigation">
+        <ul class="list-menu list-menu--inline" role="list">
+          {%- for link in top_nav.links -%}
+            <li>
+              <a
+                href="{{ link.url }}"
+                class="header__menu-item list-menu__item link link--text focus-inset"
+                {% if link.current %}aria-current="page"{% endif %}
+              >
+                <span{% if link.current %} class="header__active-menu-item"{% endif %}>{{ link.title | escape }}</span>
+              </a>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </nav>
+    {%- endif -%}
 
     {%- if section.settings.logo_position == 'middle-center' -%}
       {%- if request.page_type == 'index' -%}
@@ -240,7 +222,12 @@
                 }}
               </div>
             {%- else -%}
-              <span class="h2">{{ shop.name }}</span>
+              <img src="{{ 'uniwide-logo-for-LIGHT-header.svg' | asset_url }}"
+                   alt="{{ shop.name | escape }}"
+                   class="header__heading-logo motion-reduce"
+                   width="322" height="88"
+                   style="height:88px;width:auto;max-width:380px;display:block">
+              <span class="visually-hidden">{{ shop.name }}</span>
             {%- endif -%}
           </a>
       {%- if request.page_type == 'index' -%}

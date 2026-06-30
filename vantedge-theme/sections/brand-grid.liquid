@@ -1,0 +1,70 @@
+{%- comment -%}
+  brand-grid — Brands page. Shows a grid of brand collections (handle "brand-*").
+  Each tile uses the collection's IMAGE as the logo (upload in Admin → Collections →
+  [brand] → Image); falls back to the brand name until a logo is added. Only brands
+  that currently have products are shown (empty/settling ones hide automatically).
+{%- endcomment -%}
+
+{%- style -%}
+.brand-grid { max-width: var(--page-width); margin: 0 auto; padding: 4rem 1.5rem 5rem; }
+.brand-grid__title { text-align: center; font-size: 2.8rem; margin: 0 0 .6rem; color: #0b1220; }
+.brand-grid__sub { text-align: center; color: #64748b; font-size: 1.5rem; margin: 0 0 3rem; }
+.brand-grid__items {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.6rem;
+}
+.brand-grid__item {
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 3 / 2; padding: 1.6rem; background: #fff;
+  border: 1px solid #e5e9f0; border-radius: 10px; text-decoration: none;
+  transition: box-shadow .15s, transform .15s, border-color .15s;
+}
+.brand-grid__item:hover { box-shadow: 0 8px 22px rgba(2,8,23,.10); transform: translateY(-2px); border-color: #cdd6e4; }
+.brand-grid__logo { max-width: 100%; max-height: 64px; width: auto; height: auto; object-fit: contain; }
+.brand-grid__name { font-size: 1.7rem; font-weight: 700; color: #1f2937; letter-spacing: .02em; text-align: center; }
+.brand-grid__empty { text-align:center; color:#94a3b8; padding:3rem 0; }
+@media (max-width: 749px) {
+  .brand-grid__items { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; }
+  .brand-grid__title { font-size: 2.2rem; }
+}
+{%- endstyle -%}
+
+<div class="brand-grid">
+  <h1 class="brand-grid__title">{{ section.settings.heading | default: 'Shop by Brand' }}</h1>
+  {%- if section.settings.subheading != blank -%}
+    <p class="brand-grid__sub">{{ section.settings.subheading }}</p>
+  {%- endif -%}
+
+  {%- assign handles = section.settings.brand_handles | default: 'brand-hp,brand-hpe,brand-lenovo,brand-dell,brand-asus,brand-acer,brand-samsung,brand-lg,brand-microsoft,brand-nvidia,brand-intel,brand-msi,brand-logitech,brand-razer,brand-corsair,brand-sony,brand-apple,brand-viewsonic,brand-belkin,brand-targus,brand-brother,brand-canon,brand-epson,brand-netgear,brand-tp-link,brand-kingston,brand-seagate,brand-western-digital,brand-cisco,brand-eaton' | split: ',' -%}
+  <div class="brand-grid__items">
+    {%- assign shown = 0 -%}
+    {%- for h in handles -%}
+      {%- assign handle = h | strip -%}
+      {%- assign c = collections[handle] -%}
+      {%- if c != empty and c.all_products_count > 0 -%}
+        {%- assign shown = shown | plus: 1 -%}
+        <a class="brand-grid__item" href="{{ c.url }}" aria-label="{{ c.title | escape }}">
+          {%- if c.image != blank -%}
+            <img class="brand-grid__logo" src="{{ c.image | image_url: width: 360 }}" alt="{{ c.title | escape }}" width="180" height="120" loading="lazy">
+          {%- else -%}
+            <span class="brand-grid__name">{{ c.title }}</span>
+          {%- endif -%}
+        </a>
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+  {%- if shown == 0 -%}
+    <p class="brand-grid__empty">Brand collections are still populating — check back shortly.</p>
+  {%- endif -%}
+</div>
+
+{% schema %}
+{
+  "name": "Brand grid",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Shop by Brand" },
+    { "type": "text", "id": "subheading", "label": "Subheading", "default": "Browse products from the brands you trust." },
+    { "type": "textarea", "id": "brand_handles", "label": "Brand collection handles (comma-separated)", "info": "Leave blank to use the default brand-* set." }
+  ],
+  "presets": [{ "name": "Brand grid" }]
+}
+{% endschema %}

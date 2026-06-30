@@ -1,0 +1,102 @@
+{%- comment -%}
+  intake-form — Contact/Quote intake. A Shopify contact form with custom fields
+  (Customer type, Industry) + a "describe your needs" message. Submissions email
+  the store contact address; custom fields appear in the notification.
+{%- endcomment -%}
+
+{%- style -%}
+.intake { max-width: 720px; margin: 0 auto; padding: 1rem 1.5rem 5rem; }
+.intake__title { font-size: 2.6rem; color: #0b1220; margin: 0 0 .6rem; }
+.intake__sub { color: #64748b; font-size: 1.5rem; margin: 0 0 2.4rem; }
+.intake__ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 1.2rem 1.6rem; border-radius: 8px; margin-bottom: 2rem; font-size: 1.5rem; }
+.intake__err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 1.2rem 1.6rem; border-radius: 8px; margin-bottom: 2rem; font-size: 1.4rem; }
+.intake__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; }
+.intake__field { display: flex; flex-direction: column; gap: .5rem; }
+.intake__field--full { grid-column: 1 / -1; }
+.intake__label { font-size: 1.3rem; font-weight: 600; color: #334155; }
+.intake__label .req { color: #0ea5e9; }
+.intake input, .intake select, .intake textarea {
+  width: 100%; padding: 1.1rem 1.2rem; font-size: 1.5rem; color: #0b1220;
+  border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; box-sizing: border-box;
+}
+.intake input:focus, .intake select:focus, .intake textarea:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,.15); }
+.intake textarea { min-height: 140px; resize: vertical; }
+.intake__btn {
+  grid-column: 1 / -1; justify-self: start; margin-top: .6rem;
+  background: #0ea5e9; color: #fff; border: none; border-radius: 8px; cursor: pointer;
+  padding: 1.2rem 2.6rem; font-size: 1.5rem; font-weight: 600; width: auto;
+}
+.intake__btn:hover { background: #0284c7; }
+@media (max-width: 749px) { .intake__grid { grid-template-columns: 1fr; } }
+{%- endstyle -%}
+
+<div class="intake">
+  {%- if section.settings.heading != blank -%}<h2 class="intake__title">{{ section.settings.heading }}</h2>{%- endif -%}
+  {%- if section.settings.subheading != blank -%}<p class="intake__sub">{{ section.settings.subheading }}</p>{%- endif -%}
+
+  {%- form 'contact', id: 'IntakeForm' -%}
+    {%- if form.posted_successfully? -%}
+      <p class="intake__ok">✓ Thanks! We've received your request and will reply within 1 business day.</p>
+    {%- elsif form.errors -%}
+      <div class="intake__err">{{ form.errors | default_errors }}</div>
+    {%- endif -%}
+
+    <div class="intake__grid">
+      <div class="intake__field">
+        <label class="intake__label" for="ik-name">Name <span class="req">*</span></label>
+        <input type="text" id="ik-name" name="contact[name]" value="{% if form.name %}{{ form.name }}{% endif %}" required>
+      </div>
+      <div class="intake__field">
+        <label class="intake__label" for="ik-email">Email <span class="req">*</span></label>
+        <input type="email" id="ik-email" name="contact[email]" value="{% if form.email %}{{ form.email }}{% endif %}" required>
+      </div>
+      <div class="intake__field">
+        <label class="intake__label" for="ik-company">Company / Organization</label>
+        <input type="text" id="ik-company" name="contact[Company]">
+      </div>
+      <div class="intake__field">
+        <label class="intake__label" for="ik-phone">Phone</label>
+        <input type="tel" id="ik-phone" name="contact[Phone]">
+      </div>
+      <div class="intake__field">
+        <label class="intake__label" for="ik-type">I am a… <span class="req">*</span></label>
+        <select id="ik-type" name="contact[Customer Type]" required>
+          <option value="" disabled selected>Select one…</option>
+          <option value="New customer">New customer</option>
+          <option value="Existing customer">Existing customer</option>
+          <option value="Business customer">Business customer</option>
+          <option value="Individual customer">Individual customer</option>
+        </select>
+      </div>
+      <div class="intake__field">
+        <label class="intake__label" for="ik-industry">Industry</label>
+        <select id="ik-industry" name="contact[Industry]">
+          <option value="" disabled selected>Select one…</option>
+          <option value="Government">Government</option>
+          <option value="Education">Education</option>
+          <option value="Healthcare">Healthcare</option>
+          <option value="Small Business">Small Business</option>
+          <option value="N/A">N/A</option>
+        </select>
+      </div>
+      <div class="intake__field intake__field--full">
+        <label class="intake__label" for="ik-body">Describe your needs <span class="req">*</span></label>
+        <textarea id="ik-body" name="contact[body]" placeholder="Tell us what you're looking for — products, quantities, timeline, or any questions." required>{% if form.body %}{{ form.body }}{% endif %}</textarea>
+      </div>
+      <button type="submit" class="intake__btn">Send request</button>
+    </div>
+  {%- endform -%}
+</div>
+
+{% schema %}
+{
+  "name": "Intake form",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Tell us what you need" },
+    { "type": "text", "id": "subheading", "label": "Subheading", "default": "Share a few details and our team will follow up — usually within 1 business day." },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 100, "step": 4, "unit": "px", "default": 24 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 100, "step": 4, "unit": "px", "default": 24 }
+  ],
+  "presets": [{ "name": "Intake form" }]
+}
+{% endschema %}

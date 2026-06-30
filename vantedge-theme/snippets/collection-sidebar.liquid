@@ -52,7 +52,7 @@
     </li>
 
     {%- comment -%}── Computers & Portables ──{%- endcomment -%}
-    {%- assign csb_children = 'notebooks,desktops,workstations,servers,all-in-one-pcs,chromebooks,tablets,ai-laptops,ai-desktops,ai-pcs' | split: ',' -%}
+    {%- assign csb_children = 'notebooks,desktops,workstations,servers,all-in-one-pcs,tablets,ai-laptops,ai-desktops,ai-pcs' | split: ',' -%}
     {%- assign csb_open = false -%}
     {%- if cur == 'laptops-desktops-servers' or csb_children contains cur %}{%- assign csb_open = true -%}{%- endif -%}
     <li class="collection-sidebar__item csb-item{% if csb_open %} csb-item--open{% endif %}">
@@ -66,7 +66,6 @@
         <li><a href="/collections/workstations"  class="collection-sidebar__link{% if cur == 'workstations' %} collection-sidebar__link--active{% endif %}">Workstations</a></li>
         <li><a href="/collections/servers"       class="collection-sidebar__link{% if cur == 'servers' %} collection-sidebar__link--active{% endif %}">Servers</a></li>
         <li><a href="/collections/all-in-one-pcs" class="collection-sidebar__link{% if cur == 'all-in-one-pcs' %} collection-sidebar__link--active{% endif %}">All-in-One PCs</a></li>
-        <li><a href="/collections/chromebooks"   class="collection-sidebar__link{% if cur == 'chromebooks' %} collection-sidebar__link--active{% endif %}">Chromebooks</a></li>
         <li><a href="/collections/tablets"       class="collection-sidebar__link{% if cur == 'tablets' %} collection-sidebar__link--active{% endif %}">Tablets</a></li>
       </ul>
     </li>
@@ -107,19 +106,66 @@
       <a href="/collections/security-surveillance" class="collection-sidebar__link{% if cur == 'security-surveillance' %} collection-sidebar__link--active{% endif %}">Security &amp; Surveillance</a>
     </li>
 
-    {%- comment -%}── Printers & Supplies ──{%- endcomment -%}
-    <li class="collection-sidebar__item">
-      <a href="/collections/printers-supplies" class="collection-sidebar__link{% if cur == 'printers-supplies' %} collection-sidebar__link--active{% endif %}">Printers &amp; Supplies</a>
+    {%- comment -%}── Printers & Print Supplies — nested (mirrors TD SYNNEX) ──{%- endcomment -%}
+    {%- assign csb_children = 'printer-supplies,inkjet-printers,label-printers,laser-printers,multifunction-printers,thermal-printers' | split: ',' -%}
+    {%- assign csb_open = false -%}
+    {%- if cur == 'printers-supplies' or csb_children contains cur %}{%- assign csb_open = true -%}{%- endif -%}
+    <li class="collection-sidebar__item csb-item{% if csb_open %} csb-item--open{% endif %}">
+      <div class="csb-row">
+        <a href="/collections/printers-supplies" class="collection-sidebar__link{% if cur == 'printers-supplies' %} collection-sidebar__link--active{% endif %}">Printers &amp; Print Supplies</a>
+        <button class="csb-toggle" aria-label="Toggle">&#8250;</button>
+      </div>
+      <ul class="csb-sub">
+        <li><a href="/collections/printer-supplies"        class="collection-sidebar__link{% if cur == 'printer-supplies' %} collection-sidebar__link--active{% endif %}">Ink, Toner &amp; Drums</a></li>
+        <li><a href="/collections/inkjet-printers"         class="collection-sidebar__link{% if cur == 'inkjet-printers' %} collection-sidebar__link--active{% endif %}">Inkjet Printers</a></li>
+        <li><a href="/collections/label-printers"          class="collection-sidebar__link{% if cur == 'label-printers' %} collection-sidebar__link--active{% endif %}">Label Printers</a></li>
+        <li><a href="/collections/laser-printers"          class="collection-sidebar__link{% if cur == 'laser-printers' %} collection-sidebar__link--active{% endif %}">Laser Printers</a></li>
+        <li><a href="/collections/multifunction-printers"  class="collection-sidebar__link{% if cur == 'multifunction-printers' %} collection-sidebar__link--active{% endif %}">Multifunction Printers</a></li>
+        <li><a href="/collections/thermal-printers"        class="collection-sidebar__link{% if cur == 'thermal-printers' %} collection-sidebar__link--active{% endif %}">Thermal Printers</a></li>
+      </ul>
     </li>
 
-    {%- comment -%}── Memory ──{%- endcomment -%}
-    <li class="collection-sidebar__item">
-      <a href="/collections/memory" class="collection-sidebar__link{% if cur == 'memory' %} collection-sidebar__link--active{% endif %}">Memory</a>
+    {%- comment -%}── PC Parts (was Components) — nested ──{%- endcomment -%}
+    {%- assign csb_children = 'cpus-processors,motherboards,memory,ssds,pc-storage,power-supplies,pc-cases' | split: ',' -%}
+    {%- assign csb_open = false -%}
+    {%- if cur == 'components' or csb_children contains cur %}{%- assign csb_open = true -%}{%- endif -%}
+    <li class="collection-sidebar__item csb-item{% if csb_open %} csb-item--open{% endif %}">
+      <div class="csb-row">
+        <a href="/collections/components" class="collection-sidebar__link{% if cur == 'components' %} collection-sidebar__link--active{% endif %}">PC Parts</a>
+        <button class="csb-toggle" aria-label="Toggle">&#8250;</button>
+      </div>
+      <ul class="csb-sub">
+        <li><a href="/collections/cpus-processors" class="collection-sidebar__link{% if cur == 'cpus-processors' %} collection-sidebar__link--active{% endif %}">Processors</a></li>
+        <li><a href="/collections/motherboards"    class="collection-sidebar__link{% if cur == 'motherboards' %} collection-sidebar__link--active{% endif %}">Motherboards</a></li>
+        <li><a href="/collections/memory"          class="collection-sidebar__link{% if cur == 'memory' %} collection-sidebar__link--active{% endif %}">Memory &amp; RAM</a></li>
+        <li><a href="/collections/ssds"            class="collection-sidebar__link{% if cur == 'ssds' %} collection-sidebar__link--active{% endif %}">Solid State Drives</a></li>
+        <li><a href="/collections/pc-storage"      class="collection-sidebar__link{% if cur == 'pc-storage' %} collection-sidebar__link--active{% endif %}">Hard Drives</a></li>
+        <li><a href="/collections/power-supplies"  class="collection-sidebar__link{% if cur == 'power-supplies' %} collection-sidebar__link--active{% endif %}">Power Supplies</a></li>
+        <li><a href="/collections/pc-cases"        class="collection-sidebar__link{% if cur == 'pc-cases' %} collection-sidebar__link--active{% endif %}">PC Cases</a></li>
+      </ul>
     </li>
 
-    {%- comment -%}── Components ──{%- endcomment -%}
-    <li class="collection-sidebar__item">
-      <a href="/collections/components" class="collection-sidebar__link{% if cur == 'components' %} collection-sidebar__link--active{% endif %}">Components</a>
+    {%- comment -%}── Gaming (by brand) — nested ──{%- endcomment -%}
+    {%- assign csb_children = 'gaming-asus-rog,gaming-lenovo-legion,gaming-alienware,gaming-acer-nitro,gaming-hp-omen,gaming-razer,gaming-msi,gaming-steelseries,gaming-corsair,gaming-logitech-g' | split: ',' -%}
+    {%- assign csb_open = false -%}
+    {%- if cur == 'gaming' or csb_children contains cur %}{%- assign csb_open = true -%}{%- endif -%}
+    <li class="collection-sidebar__item csb-item{% if csb_open %} csb-item--open{% endif %}">
+      <div class="csb-row">
+        <a href="/collections/gaming" class="collection-sidebar__link{% if cur == 'gaming' %} collection-sidebar__link--active{% endif %}">Gaming</a>
+        <button class="csb-toggle" aria-label="Toggle">&#8250;</button>
+      </div>
+      <ul class="csb-sub">
+        <li><a href="/collections/gaming-asus-rog"      class="collection-sidebar__link{% if cur == 'gaming-asus-rog' %} collection-sidebar__link--active{% endif %}">ASUS ROG</a></li>
+        <li><a href="/collections/gaming-lenovo-legion" class="collection-sidebar__link{% if cur == 'gaming-lenovo-legion' %} collection-sidebar__link--active{% endif %}">Lenovo Legion</a></li>
+        <li><a href="/collections/gaming-alienware"     class="collection-sidebar__link{% if cur == 'gaming-alienware' %} collection-sidebar__link--active{% endif %}">Alienware</a></li>
+        <li><a href="/collections/gaming-acer-nitro"    class="collection-sidebar__link{% if cur == 'gaming-acer-nitro' %} collection-sidebar__link--active{% endif %}">Acer Nitro</a></li>
+        <li><a href="/collections/gaming-hp-omen"       class="collection-sidebar__link{% if cur == 'gaming-hp-omen' %} collection-sidebar__link--active{% endif %}">HP OMEN</a></li>
+        <li><a href="/collections/gaming-razer"         class="collection-sidebar__link{% if cur == 'gaming-razer' %} collection-sidebar__link--active{% endif %}">Razer</a></li>
+        <li><a href="/collections/gaming-msi"           class="collection-sidebar__link{% if cur == 'gaming-msi' %} collection-sidebar__link--active{% endif %}">MSI</a></li>
+        <li><a href="/collections/gaming-steelseries"   class="collection-sidebar__link{% if cur == 'gaming-steelseries' %} collection-sidebar__link--active{% endif %}">SteelSeries</a></li>
+        <li><a href="/collections/gaming-corsair"       class="collection-sidebar__link{% if cur == 'gaming-corsair' %} collection-sidebar__link--active{% endif %}">Corsair</a></li>
+        <li><a href="/collections/gaming-logitech-g"    class="collection-sidebar__link{% if cur == 'gaming-logitech-g' %} collection-sidebar__link--active{% endif %}">Logitech G</a></li>
+      </ul>
     </li>
 
     {%- comment -%}── Keyboards & Mice ──{%- endcomment -%}
