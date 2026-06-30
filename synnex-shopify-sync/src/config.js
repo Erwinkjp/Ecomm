@@ -80,6 +80,11 @@ const config = {
     concurrency: parseIntEnv('SYNNEX_SYNC_CONCURRENCY', 10),
     timeoutSeconds: parseIntEnv('SYNNEX_SYNC_TIMEOUT_SECONDS', 510), // stop streaming 90s before Lambda's hard cutoff
     markupPercent: parseFloatEnv('PRICE_MARKUP_PERCENT', 0),
+    // Price-sync hides (drafts) any product whose synced sell price falls below this.
+    minActivePrice: parseFloatEnv('PRICE_MIN_ACTIVE', 1),
+    // Price-sync hides (drafts) cheap accessory/cable clutter priced below this that
+    // isn't genuine hardware (see catalog/junkFilter.js). Set to 0 to disable.
+    junkMaxPrice: parseFloatEnv('JUNK_MAX_PRICE', 5),
   },
   icecat: {
     username: getEnv('ICECAT_USERNAME'),

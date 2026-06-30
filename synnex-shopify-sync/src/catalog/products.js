@@ -55,12 +55,23 @@ async function saveProduct(product) {
       category:               product.category               || '',
       unspsc:                 product.unspsc                 || '',
       productType:            product.productType            || '',
+      // MAP (Minimum Advertised Price) from the catalog feed; 0 = no MAP restriction.
+      // price-sync floors the selling price at this so we never advertise below MAP.
+      map:                    product.map                    || 0,
+      // MSRP from the feed; price-sync uses it to price MAP items near MSRP (competitive).
+      msrp:                   product.msrp                   || 0,
       tags:                   product.tags                   || [],
       shopifyProductId:       product.shopifyProductId       || '',
       shopifyVariantId:       product.shopifyVariantId       || '',
       shopifyInventoryItemId: product.shopifyInventoryItemId || '',
       addedAt:                product.addedAt                || now,
       lastSyncedAt:           now,
+      // Set by the price-sync guard when a product is hidden for having no/zero price,
+      // so it can be safely re-activated (and only it) once a real price returns.
+      autoHiddenZeroPrice:    product.autoHiddenZeroPrice    || false,
+      // Set by the price-sync junk guard when a sub-$5 non-hardware accessory/cable is
+      // hidden. Permanent — never auto-restored (unlike autoHiddenZeroPrice).
+      autoHiddenJunk:         product.autoHiddenJunk         || false,
     }, { removeUndefinedValues: true }),
   }));
 }

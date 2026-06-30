@@ -234,6 +234,9 @@ function mapApRow(fields) {
   const innerPackQty = Math.max(1, parseInt(fields[10], 10) || 1);
   const price = parseFloat(fields[12]) || 0;
   const msrpVal = parseFloat(fields[13]) || 0;
+  // [30] MAP (Minimum Advertised Price) — distributor's pricing-policy floor. We are not
+  // allowed to advertise a MAP-protected item below this. 0/blank = no MAP restriction.
+  const mapVal = parseFloat(fields[30]) || 0;
   const weight = parseFloat(fields[27]) || undefined;
 
   return {
@@ -248,6 +251,7 @@ function mapApRow(fields) {
     statusCode: status || 'A',
     price: Number.isFinite(price) ? price : 0,
     msrp: msrpVal > 0 && Number.isFinite(msrpVal) ? msrpVal : undefined,
+    map: mapVal > 0 && Number.isFinite(mapVal) ? mapVal : undefined,
     quantityAvailable: Number.isFinite(qty) ? Math.max(0, qty) : 0,
     innerPackQty,
     upc: (fields[33] || '').trim(),

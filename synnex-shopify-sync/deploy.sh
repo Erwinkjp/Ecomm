@@ -34,11 +34,16 @@ def add(key, env, required=False, always=False):
 parts = [
     add("ShopifyClientId",        "SHOPIFY_CLIENT_ID",       required=True),
     add("ShopifyClientSecret",    "SHOPIFY_CLIENT_SECRET",   required=True),
-    add("ShopifyAccessToken",     "SHOPIFY_ACCESS_TOKEN"),
+    # Force client_credentials auth: clear the static token so getAccessToken() always mints
+    # a fresh token from CLIENT_ID/SECRET. Never goes stale, auto-includes newly-released
+    # scopes, and removes the need to ever manually swap SHOPIFY_ACCESS_TOKEN on scope changes.
+    "ShopifyAccessToken=''",
     add("SynnexXmlCustomerNo",    "SYNNEX_XML_CUSTOMER_NO",  required=True),
     add("SynnexXmlUsername",      "SYNNEX_XML_USERNAME",     required=True),
     add("SynnexXmlPassword",      "SYNNEX_XML_PASSWORD",     required=True),
     add("PriceMarkupPercent",     "PRICE_MARKUP_PERCENT"),
+    add("PriceMinActive",         "PRICE_MIN_ACTIVE"),
+    add("JunkMaxPrice",           "JUNK_MAX_PRICE"),
     add("ShopifyStore",           "SHOPIFY_STORE"),
     add("ShopifyLocationId",      "SHOPIFY_LOCATION_ID"),
     add("SynnexSftpUsername",     "SYNNEX_SFTP_USERNAME"),

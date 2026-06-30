@@ -269,6 +269,25 @@ async function setProductDraft(productGid) {
   if (errors.length) throw new Error(errors.map(e => e.message).join('; '));
 }
 
+const PRODUCT_SET_ACTIVE = `
+  mutation productUpdate($id: ID!, $publishedAt: DateTime!) {
+    productUpdate(input: { id: $id, status: ACTIVE, publishedAt: $publishedAt }) {
+      product { id status }
+      userErrors { field message }
+    }
+  }
+`;
+
+/**
+ * Set a product back to ACTIVE and (re)publish it to the Online Store. Used by the
+ * price-sync guard to restore a product it previously auto-hid for having no price.
+ */
+async function setProductActive(productGid) {
+  const data = await graphql(PRODUCT_SET_ACTIVE, { id: productGid, publishedAt: new Date().toISOString() });
+  const errors = data.productUpdate?.userErrors || [];
+  if (errors.length) throw new Error(errors.map(e => e.message).join('; '));
+}
+
 const UPDATE_PRODUCT_CONTENT = `
   mutation productUpdate($input: ProductInput!) {
     productUpdate(input: $input) {
@@ -310,4 +329,4 @@ async function updateProductContent(productGid, { description, specs } = {}) {
   }
 }
 
-module.exports = { upsertProduct, getAllVariants, getActiveProductsPage, setProductDraft, getUnpublishedProductIds, publishProduct, updateProductContent };
+module.exports = { upsertProduct, getAllVariants, getActiveProductsPage, setProductDraft, setProductActive, getUnpublishedProductIds, publishProduct, updateProductContent };

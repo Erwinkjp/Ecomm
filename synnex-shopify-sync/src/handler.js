@@ -24,11 +24,12 @@ const { config, isSftpConfigured, isXmlConfigured, validateShopify } = require('
 const { streamCatalogLines, listZipEntries } = require('./synnex/sftp');
 const { createLineParser } = require('./synnex/catalog');
 const { fetchPriceAvailability } = require('./synnex/pricing');
-const { upsertProduct, getAllVariants, getActiveProductsPage, setProductDraft, getUnpublishedProductIds, publishProduct, updateProductContent } = require('./shopify/products');
+const { upsertProduct, getAllVariants, getActiveProductsPage, setProductDraft, setProductActive, getUnpublishedProductIds, publishProduct, updateProductContent } = require('./shopify/products');
 const { setInventoryQuantities, updateVariantPrice, setProductLeadTimes } = require('./shopify/inventory');
 const { toShopifyProduct, applyMarkup, mapCategory, buildTags, normalizeBrand, expandAppleTitle } = require('./transform');
 const { categorize } = require('./categorize');
 const { saveProduct, getAllProducts, getProductByMfrPart, getProductCount, scanProductsPage, getJobState, putJobState } = require('./catalog/products');
+const { isCheapJunk } = require('./catalog/junkFilter');
 const { fetchIcecatProduct } = require('./icecat/client');
 const { verifyWebhook, parseOrderWebhook, parseReturnWebhook } = require('./shopify/webhooks');
 const { createRma, checkRmaStatus, isRmaConfigured } = require('./synnex/rma');
@@ -131,6 +132,8 @@ async function syncOneProduct(product, result) {
       unspsc:                 product.unspsc,
       productType,
       tags,
+      map:                    product.map,
+      msrp:                   product.msrp,
       shopifyProductId:       productId       || '',
       shopifyVariantId:       variantId       || '',
       shopifyInventoryItemId: inventoryItemId || '',
@@ -759,7 +762,10 @@ async function runPriceSync() {
     throw new Error('XML P&A not configured. Set SYNNEX_XML_CUSTOMER_NO, SYNNEX_XML_USERNAME, and SYNNEX_XML_PASSWORD.');
   }
 
-  const result = { skusChecked: 0, pricesUpdated: 0, inventoryUpdated: 0, errors: [], timedOut: false };
+  const result = { skusChecked: 0, pricesUpdated: 0, inventoryUpdated: 0, drafted: 0, reactivated: 0, errors: [], timedOut: false };
+  // Products whose synced price falls below this are hidden (drafted) — they're SKUs
+  // TD Synnex returns no/zero cost for. Tunable via PRICE_MIN_ACTIVE (default $1).
+  const MIN_ACTIVE_PRICE = config.sync.minActivePrice;
 
   // Stop 90 s before Lambda hard timeout so we can flush inventory and return cleanly
   const LAMBDA_TIMEOUT_MS = (config.sync.timeoutSeconds || 510) * 1000;
@@ -784,6 +790,8 @@ async function runPriceSync() {
 
   const { locationId } = config.shopify;
   const { syncPrices, msrpAsCompareAt, skuChunkSize } = config.synnex.xml;
+  // Eligible MAP items (MAP ≤ MSRP) are priced at MSRP × this factor, floored at MAP.
+  const MAP_MSRP_FACTOR = 0.90;
 
   // Process in rolling batches: fetch P&A for each batch, update prices immediately,
   // then advance to the next batch. This keeps memory flat and makes progress even
@@ -821,14 +829,55 @@ async function runPriceSync() {
 
         const isSpecialOrder = SPECIAL_ORDER_TYPES.has(product.productType);
         const qty = data.quantityAvailable ?? 0;
+        const gid = product.shopifyProductId
+          ? (product.shopifyProductId.startsWith('gid://') ? product.shopifyProductId : `gid://shopify/Product/${product.shopifyProductId}`)
+          : null;
 
-        if (syncPrices && data.price != null && product.shopifyVariantId) {
+        if (syncPrices && product.shopifyVariantId) {
           try {
-            const packQty = data.innerPackQty || 1;
+            const packQty   = data.innerPackQty || 1;
             // Unit price × pack size = what the customer pays for one shipment
-            const unitCost  = data.price * packQty;
-            const sellPrice = applyMarkup(unitCost);
+            const unitCost  = (data.price != null ? data.price : 0) * packQty;
+            // MAP-protected pricing. Sanity: only trust MAP within 5× unit cost (the feed has
+            // garbage MAP values, e.g. $4788 on a $9 item). For an "eligible" MAP item
+            // (MAP ≤ MSRP) we price NEAR MSRP — competitive, but never below the MAP floor and
+            // never above MSRP. Non-MAP items (and MAP items without a usable MSRP) keep cost+markup.
+            const mapSane  = product.map && data.price > 0 && product.map <= data.price * 5;
+            const mapPack  = mapSane ? product.map * packQty : 0;
+            const msrpPack = (product.msrp || 0) * packQty;
+            let sellPrice;
+            if (mapPack > 0 && msrpPack > 0 && mapPack <= msrpPack) {
+              const target = Math.round(msrpPack * MAP_MSRP_FACTOR * 100) / 100;
+              sellPrice = Math.min(msrpPack, Math.max(mapPack, target));
+            } else {
+              sellPrice = Math.max(applyMarkup(unitCost), mapPack);
+            }
             const compareAt = msrpAsCompareAt && data.msrp ? data.msrp * packQty : undefined;
+
+            // GUARD: TD Synnex returned no/zero cost → not sellable. Hide it (draft) so a
+            // $0 listing never goes live. Flag it (autoHiddenZeroPrice) so this — and only
+            // this — gets auto-restored below if a real price returns; never un-hides
+            // products drafted for other reasons (services/software, orphans, etc.).
+            if (data.price == null || unitCost <= 0 || sellPrice < MIN_ACTIVE_PRICE) {
+              if (gid && !product.autoHiddenZeroPrice) {
+                await setProductDraft(gid);
+                await saveProduct({ ...product, autoHiddenZeroPrice: true });
+                result.drafted += 1;
+              }
+              return;
+            }
+
+            // JUNK GUARD: cheap accessory/cable clutter (sub-$JUNK_MAX_PRICE, not real
+            // hardware) is kept off the storefront permanently. Flagged autoHiddenJunk so
+            // it's never auto-restored, and skipped on later runs once flagged.
+            if (isCheapJunk(product.description, sellPrice)) {
+              if (gid && !product.autoHiddenJunk) {
+                await setProductDraft(gid);
+                await saveProduct({ ...product, autoHiddenJunk: true });
+                result.drafted += 1;
+              }
+              return;
+            }
 
             // Sanity guard: never push a price that is less than 10% of the compare-at
             // price (when available) — this catches pack-pricing errors and bad catalog data.
@@ -846,6 +895,15 @@ async function runPriceSync() {
               inventoryPolicy,
             });
             result.pricesUpdated += 1;
+
+            // Self-heal: if we previously auto-hid this for a zero price, a real price is
+            // back — restore it to the storefront and clear the flag.
+            if (gid && product.autoHiddenZeroPrice) {
+              await setProductActive(gid);
+              await saveProduct({ ...product, autoHiddenZeroPrice: false });
+              result.reactivated += 1;
+            }
+
             if (isSpecialOrder && qty === 0) specialOrderProductIds.add(product.shopifyProductId);
             if (product.shopifyInventoryItemId && locationId) {
               inventoryUpdates.push({ inventoryItemId: product.shopifyInventoryItemId, locationId, quantity: qty });
@@ -2016,6 +2074,99 @@ exports.handler = async (event) => {
       });
     } catch (e) {
       return jsonResponse(isHttp, 500, { error: e.message });
+    }
+  }
+
+  // B2B Company Standards — returns a company's curated product list for the
+  // customer-account UI extension (which has the companyId but can't read the
+  // company metafield client-side). CORS-enabled for the extension's fetch.
+  if (path.endsWith('/b2b/standards')) {
+    const cors = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+    if (method === 'OPTIONS') return { statusCode: 204, headers: cors, body: '' };
+    if (method === 'GET') {
+      try {
+        const raw = event.queryStringParameters?.companyId || '';
+        const gid = raw.startsWith('gid://') ? raw : `gid://shopify/Company/${raw}`;
+        const rawLoc = event.queryStringParameters?.locationId || '';
+        const { graphql: gql } = require('./shopify/auth');
+        const data = await gql(
+          `query($id: ID!) { company(id: $id) { name metafield(namespace: "$app:standards", key: "products") { value } locations(first: 1) { edges { node { id } } } } }`,
+          { id: gid }
+        );
+        let products = [];
+        try { products = JSON.parse(data?.company?.metafield?.value || '[]'); } catch (_) {}
+
+        // Resolve the company location to price against (buyer's selected location, else the company's first).
+        const locId = (rawLoc && rawLoc.startsWith('gid://')) ? rawLoc
+          : (rawLoc ? `gid://shopify/CompanyLocation/${rawLoc}` : data?.company?.locations?.edges?.[0]?.node?.id);
+
+        // Fetch consumer (retail) + B2B contextual price for each standards variant.
+        const ids = products.map((p) => p.variantId).filter(Boolean);
+        if (ids.length && locId) {
+          try {
+            const priced = await gql(
+              `query($ids: [ID!]!, $ctx: ContextualPricingContext!) {
+                 nodes(ids: $ids) { ... on ProductVariant {
+                   id price contextualPricing(context: $ctx) { price { amount currencyCode } }
+                 } }
+               }`,
+              { ids, ctx: { companyLocationId: locId } }
+            );
+            const byId = {};
+            for (const n of (priced?.nodes || [])) {
+              if (!n?.id) continue;
+              byId[n.id] = {
+                retailPrice: n.price != null ? Number(n.price) : null,
+                b2bPrice: n.contextualPricing?.price?.amount != null ? Number(n.contextualPricing.price.amount) : null,
+                currency: n.contextualPricing?.price?.currencyCode || 'USD',
+              };
+            }
+            products = products.map((p) => ({ ...p, ...(byId[p.variantId] || {}) }));
+          } catch (_) { /* pricing is best-effort — fall back to title-only list */ }
+        }
+
+        return { statusCode: 200, headers: { ...cors, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ company: data?.company?.name || '', products }) };
+      } catch (e) {
+        return { statusCode: 500, headers: { ...cors, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: e.message }) };
+      }
+    }
+  }
+
+  // Checkout Terms & Agreement text — read by the checkout UI extension to render the
+  // scrollable terms. Source: shop metafield custom.checkout_terms (editable in admin);
+  // falls back to the terms-of-service page body. Returns { paragraphs: [...] }.
+  if (path.endsWith('/checkout/terms')) {
+    const cors = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+    if (method === 'OPTIONS') return { statusCode: 204, headers: cors, body: '' };
+    if (method === 'GET') {
+      try {
+        const { graphql: gql } = require('./shopify/auth');
+        const data = await gql(`{ shop { metafield(namespace: "custom", key: "checkout_terms") { value } } }`);
+        let raw = data?.shop?.metafield?.value || '';
+        if (!raw) {
+          const pg = await gql(`{ pages(first: 1, query: "handle:terms-of-service") { nodes { body } } }`);
+          raw = pg?.pages?.nodes?.[0]?.body || '';
+        }
+        // Convert any HTML (page fallback) to clean text; metafield is already plain.
+        const text = raw
+          .replace(/<\/(p|div|li|h[1-6])>/gi, '\n\n').replace(/<li[^>]*>/gi, '• ')
+          .replace(/<br\s*\/?>(?!\n)/gi, '\n').replace(/<[^>]+>/g, '')
+          .replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ');
+        const paragraphs = text.split(/\n\s*\n/).map((s) => s.trim().replace(/[ \t]+/g, ' ')).filter(Boolean);
+        return { statusCode: 200, headers: { ...cors, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paragraphs }) };
+      } catch (e) {
+        return { statusCode: 500, headers: { ...cors, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: e.message, paragraphs: [] }) };
+      }
     }
   }
 

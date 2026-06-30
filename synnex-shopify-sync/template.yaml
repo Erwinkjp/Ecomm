@@ -180,6 +180,15 @@ Parameters:
     Type: String
     Default: '15'
     Description: Markup % over TD Synnex cost price (e.g. 15 = customer pays cost × 1.15)
+  PriceMinActive:
+    Type: String
+    Default: '1'
+    Description: Price-sync drafts (hides) any product whose synced sell price is below this $ floor
+
+  JunkMaxPrice:
+    Type: String
+    Default: '5'
+    Description: Price-sync drafts cheap accessory/cable clutter below this $ floor that isn't real hardware (0 disables)
 
 # ─── Conditions ───────────────────────────────────────────────────────────────
 
@@ -380,6 +389,8 @@ Resources:
           RETURNS_TABLE: !Ref ReturnsTable
           PRODUCTS_TABLE: !Ref ProductsTable
           PRICE_MARKUP_PERCENT: !Ref PriceMarkupPercent
+          PRICE_MIN_ACTIVE: !Ref PriceMinActive
+          JUNK_MAX_PRICE: !Ref JunkMaxPrice
       VpcConfig:
         SubnetIds:
           - !Ref PrivateSubnet
@@ -496,6 +507,30 @@ Resources:
             ApiId: !Ref SyncApi
             Path: /oauth/callback
             Method: GET
+        HttpB2bStandards:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /b2b/standards
+            Method: GET
+        HttpB2bStandardsOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /b2b/standards
+            Method: OPTIONS
+        HttpCheckoutTerms:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /checkout/terms
+            Method: GET
+        HttpCheckoutTermsOptions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncApi
+            Path: /checkout/terms
+            Method: OPTIONS
         HttpListZip:
           Type: HttpApi
           Properties:
