@@ -1,0 +1,238 @@
+<!-- Uniwide — Government Tech Micro-Lead Dashboard (Apps Script Web App view) -->
+<!-- Create this in Apps Script as an HTML file named "Dashboard" (no extension in the editor). -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --bg:#0b1220; --panel:#121a2e; --panel2:#16203a; --line:#243150;
+    --txt:#e8edf7; --muted:#93a1c0; --accent:#4f8cff; --good:#27c98a;
+    --warn:#ffb020; --hot:#ff5470; --chip:#1d2942;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1200px;margin:0 auto;padding:18px 16px 60px}
+
+  header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin-bottom:14px}
+  .brandblock h1{font-size:20px;margin:0;letter-spacing:.2px}
+  .brandblock p{margin:3px 0 0;color:var(--muted);font-size:13px}
+  .live{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 0 rgba(39,201,138,.6);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(39,201,138,.5)}70%{box-shadow:0 0 0 8px rgba(39,201,138,0)}100%{box-shadow:0 0 0 0 rgba(39,201,138,0)}}
+  .btn{background:var(--accent);color:#fff;border:0;padding:9px 14px;border-radius:9px;font-size:13px;cursor:pointer;font-weight:600}
+  .btn.ghost{background:var(--chip);color:var(--txt);border:1px solid var(--line)}
+  .btn:disabled{opacity:.55;cursor:default}
+
+  .alert{display:none;align-items:center;gap:10px;background:linear-gradient(90deg,#1c2d22,#15233a);
+         border:1px solid #1f6b4a;color:#c7f4dd;padding:11px 14px;border-radius:11px;margin-bottom:14px;font-size:14px}
+  .alert.show{display:flex}
+
+  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px}
+  .card .n{font-size:26px;font-weight:700;line-height:1.1}
+  .card .l{font-size:12px;color:var(--muted);margin-top:4px}
+  .card.hot .n{color:var(--hot)} .card.good .n{color:var(--good)} .card.warn .n{color:var(--warn)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+  .controls input[type=search]{flex:1;min-width:200px;background:var(--panel);border:1px solid var(--line);
+       color:var(--txt);padding:10px 12px;border-radius:9px;font-size:14px}
+  .controls select{background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:10px;border-radius:9px;font-size:13px}
+  .toggle{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);background:var(--panel);
+          border:1px solid var(--line);padding:9px 11px;border-radius:9px;cursor:pointer;user-select:none}
+  .toggle input{accent-color:var(--accent)}
+
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:13px;background:var(--panel)}
+  table{border-collapse:collapse;width:100%;min-width:860px;font-size:13.5px}
+  thead th{position:sticky;top:0;background:var(--panel2);text-align:left;padding:11px 12px;color:var(--muted);
+           font-weight:600;border-bottom:1px solid var(--line);white-space:nowrap}
+  tbody td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  tbody tr:hover{background:#0f1830}
+  .pri{font-weight:700;border-radius:8px;padding:2px 8px;display:inline-block;min-width:30px;text-align:center}
+  .pri.hi{background:rgba(255,84,112,.16);color:#ff8aa0} .pri.md{background:rgba(255,176,32,.16);color:#ffce73}
+  .pri.lo{background:rgba(147,161,192,.14);color:#b8c4dd}
+  .title{font-weight:600;color:var(--txt)} .title small{display:block;color:var(--muted);font-weight:400;margin-top:3px}
+  .chip{display:inline-block;background:var(--chip);border:1px solid var(--line);color:var(--muted);
+        font-size:11px;padding:2px 7px;border-radius:20px;margin:2px 4px 0 0;white-space:nowrap}
+  .chip.sb{background:rgba(79,140,255,.14);border-color:#2b4a82;color:#a9c6ff}
+  .val.micro{color:var(--good);font-weight:600} .val.tbd{color:var(--muted)} .val.big{color:var(--warn)}
+  .new{background:var(--hot);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:6px;vertical-align:middle}
+  .poc a{display:block} .poc small{color:var(--muted)}
+  .empty,.loading{padding:40px;text-align:center;color:var(--muted)}
+  footer{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.6}
+
+  @media(max-width:880px){
+    .cards{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brandblock">
+      <h1>🏛️ Government Tech Leads</h1>
+      <p id="brandline">Live federal IT buying signals &amp; micro-purchase contacts</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="live"><span class="dot"></span><span id="updated">loading…</span></span>
+      <button class="btn ghost" id="syncBtn" title="Pull fresh data from SAM.gov now">↻ Sync now</button>
+    </div>
+  </header>
+
+  <div class="alert" id="alert"></div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="controls">
+    <input type="search" id="q" placeholder="Search title, agency, set-aside, POC…">
+    <label class="toggle"><input type="checkbox" id="microOnly" checked> ≤ $15k / micro-buy only</label>
+    <label class="toggle"><input type="checkbox" id="sbOnly"> Small-business set-asides</label>
+    <label class="toggle"><input type="checkbox" id="newOnly"> New (24h)</label>
+    <select id="sort">
+      <option value="priority">Sort: Priority</option>
+      <option value="new">Sort: Newest</option>
+      <option value="deadline">Sort: Deadline</option>
+    </select>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th>Pri</th><th>Opportunity</th><th>Agency / Office</th><th>Set-Aside</th>
+        <th>Est. Value</th><th>Deadline</th><th>Contact (POC)</th>
+      </tr></thead>
+      <tbody id="rows"><tr><td colspan="7" class="loading">Loading leads…</td></tr></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <strong>How to use:</strong> highest-priority rows are the warmest. Click a POC's email to introduce
+    Uniwide as a fast, card-ready supplier for their IT needs — micro-purchases under $15k can go straight
+    on a Government Purchase Card, no contract required. <br>
+    <em>Note:</em> SAM.gov doesn't post sub-threshold micro-buys themselves — these are the tech buying
+    offices &amp; contacts actively procuring our categories. "Est. Value" shows only when an agency
+    publishes one; most early-stage notices show <strong>TBD</strong>. Auto-refreshes every 60s.
+  </footer>
+</div>
+
+<script>
+  var ALL = [], CAP = 15000;
+
+  function fmtAgo(iso){
+    if(!iso) return '';
+    var d=new Date(iso), s=(Date.now()-d.getTime())/1000;
+    if(s<60) return 'just now';
+    if(s<3600) return Math.floor(s/60)+'m ago';
+    if(s<86400) return Math.floor(s/3600)+'h ago';
+    return Math.floor(s/86400)+'d ago';
+  }
+  function isNew(iso){ return iso && (Date.now()-new Date(iso).getTime()) <= 86400000; }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function money(n){ return '$'+Number(n).toLocaleString(); }
+  function isSmallBiz(sa){ return /small business|8\(a\)|wosb|edwosb|sdvosb|hubzone|veteran/i.test(sa||''); }
+
+  function renderCards(st){
+    document.getElementById('cards').innerHTML =
+      card(st.total,'Total tech leads','') +
+      card(st.new24h,'New (24h)','hot') +
+      card(st.new7d,'New (7d)','good') +
+      card(st.highPriority,'High priority','warn') +
+      card(st.micro,'≤ $15k / micro','good');
+  }
+  function card(n,l,cls){ return '<div class="card '+cls+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
+
+  function priClass(p){ return p>=75?'hi':p>=60?'md':'lo'; }
+  function valCell(v){
+    if(v===null||v===undefined) return '<span class="val tbd">TBD</span>';
+    if(v<=CAP) return '<span class="val micro">'+money(v)+'</span>';
+    return '<span class="val big">'+money(v)+'</span>';
+  }
+
+  function apply(){
+    var q=document.getElementById('q').value.toLowerCase().trim();
+    var microOnly=document.getElementById('microOnly').checked;
+    var sbOnly=document.getElementById('sbOnly').checked;
+    var newOnly=document.getElementById('newOnly').checked;
+    var sort=document.getElementById('sort').value;
+
+    var list=ALL.filter(function(l){
+      if(microOnly && !(l.value===null || l.value<=CAP)) return false;
+      if(sbOnly && !isSmallBiz(l.setAside)) return false;
+      if(newOnly && !isNew(l.firstSeen)) return false;
+      if(q){
+        var hay=(l.title+' '+l.agency+' '+l.setAside+' '+l.pocName+' '+l.pocEmail+' '+l.naics+' '+l.psc).toLowerCase();
+        if(hay.indexOf(q)===-1) return false;
+      }
+      return true;
+    });
+
+    list.sort(function(a,b){
+      if(sort==='new') return new Date(b.firstSeen||0)-new Date(a.firstSeen||0);
+      if(sort==='deadline'){
+        var da=Date.parse(a.deadline)||Infinity, db=Date.parse(b.deadline)||Infinity; return da-db;
+      }
+      return b.priority-a.priority;
+    });
+
+    var tb=document.getElementById('rows');
+    if(!list.length){ tb.innerHTML='<tr><td colspan="7" class="empty">No leads match these filters yet.</td></tr>'; return; }
+
+    tb.innerHTML=list.map(function(l){
+      var sbChip = isSmallBiz(l.setAside) ? '<span class="chip sb">'+esc(l.setAside||'Set-aside')+'</span>'
+                  : (l.setAside ? '<span class="chip">'+esc(l.setAside)+'</span>' : '<span class="chip">Full &amp; Open</span>');
+      var deadline = l.deadline ? esc(l.deadline.slice(0,10)) : '—';
+      var poc = '<div class="poc">'+
+        (l.pocEmail ? '<a href="mailto:'+esc(l.pocEmail)+'?subject='+encodeURIComponent('Uniwide Merchandise — IT supply for '+(l.title||'your requirement'))+'">'+esc(l.pocName||l.pocEmail)+'</a>' : esc(l.pocName||'—'))+
+        (l.pocPhone ? '<small>'+esc(l.pocPhone)+'</small>' : '')+'</div>';
+      var titleLink = l.link ? '<a class="title" href="'+esc(l.link)+'" target="_blank" rel="noopener">'+esc(l.title)+'</a>' : '<span class="title">'+esc(l.title)+'</span>';
+      return '<tr>'+
+        '<td><span class="pri '+priClass(l.priority)+'">'+l.priority+'</span></td>'+
+        '<td>'+titleLink+(isNew(l.firstSeen)?'<span class="new">NEW</span>':'')+
+            '<small>'+esc(l.type)+' · NAICS '+esc(l.naics)+(l.psc?' · PSC '+esc(l.psc):'')+'</small></td>'+
+        '<td>'+esc(l.agency)+'</td>'+
+        '<td>'+sbChip+'</td>'+
+        '<td>'+valCell(l.value)+'</td>'+
+        '<td>'+deadline+'</td>'+
+        '<td>'+poc+'</td>'+
+      '</tr>';
+    }).join('');
+  }
+
+  function load(){
+    google.script.run.withSuccessHandler(function(data){
+      ALL=data.leads||[]; CAP=data.valueCap||15000;
+      document.getElementById('brandline').textContent='Live federal IT buying signals & micro-purchase contacts — '+(data.brand||'');
+      document.getElementById('updated').textContent='Updated '+new Date(data.generatedAt).toLocaleTimeString();
+      renderCards(data.stats);
+      var a=document.getElementById('alert');
+      if(data.stats.new24h>0){ a.classList.add('show'); a.innerHTML='🔔 <strong>'+data.stats.new24h+'</strong> new tech opportunit'+(data.stats.new24h===1?'y':'ies')+' in the last 24 hours — reach out while they’re warm.'; }
+      else a.classList.remove('show');
+      apply();
+    }).withFailureHandler(function(err){
+      document.getElementById('rows').innerHTML='<tr><td colspan="7" class="empty">Could not load data: '+esc(err&&err.message||err)+'</td></tr>';
+    }).getDashboardData();
+  }
+
+  document.getElementById('q').addEventListener('input',apply);
+  document.getElementById('microOnly').addEventListener('change',apply);
+  document.getElementById('sbOnly').addEventListener('change',apply);
+  document.getElementById('newOnly').addEventListener('change',apply);
+  document.getElementById('sort').addEventListener('change',apply);
+
+  document.getElementById('syncBtn').addEventListener('click',function(){
+    var b=this; b.disabled=true; b.textContent='Syncing…';
+    google.script.run.withSuccessHandler(function(r){
+      b.disabled=false; b.textContent='↻ Sync now';
+      if(r&&r.ok){ load(); } else { alert('Sync error: '+(r&&r.error||'unknown')); }
+    }).withFailureHandler(function(e){ b.disabled=false; b.textContent='↻ Sync now'; alert('Sync failed: '+(e&&e.message||e)); }).syncNow();
+  });
+
+  load();
+  setInterval(load, 60000); // auto-refresh every 60s
+</script>
+</body>
+</html>

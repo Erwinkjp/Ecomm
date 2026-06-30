@@ -1,78 +1,166 @@
 /**
- * Uniwide Merchandise — Government Micro-Lead Generator
- * ----------------------------------------------------
+ * Uniwide Merchandise - Government TECH Micro-Lead Dashboard
+ * ---------------------------------------------------------
  * Pulls federal contract opportunities from the SAM.gov public Opportunities API
- * (https://api.sam.gov/opportunities/v2/search), filters them to the product
- * categories we sell (IT hardware/software + office supplies via NAICS/PSC),
- * harvests the contracting Point-of-Contact (name/email/phone) from each notice,
- * de-duplicates, and writes them as leads into a Google Sheet. Runs daily.
+ * (https://api.sam.gov/opportunities/v2/search), filters them to the TECHNOLOGY
+ * categories we sell (IT hardware/software/peripherals/services via NAICS + PSC),
+ * harvests each notice's contracting Point-of-Contact (name/email/phone),
+ * de-duplicates, scores them, and writes them as leads into a backing Google Sheet.
  *
- * WHY POC-centric: true micro-purchases (<$10k) aren't posted on SAM.gov, but the
- * buyers who make them are reachable via the POCs on the larger notices they post.
- * Those POCs can buy off our store on a Government Purchase Card. Lead = the buyer.
+ * It ALSO serves a live HTML dashboard (deploy as a Web App) you can share by link -
+ * real-time-ish counts, alerts for brand-new leads, a "<= $15k / micro-buy" filter,
+ * and one-click email-the-POC links. No Google login required for viewers.
+ *
+ * WHY POC-centric for sub-$15k buys: true micro-purchases (< the federal micro-purchase
+ * threshold) are NOT posted on SAM.gov - agencies put them on a Government Purchase
+ * Card (GPC). So we surface the TECH buying offices + their POCs actively procuring our
+ * categories; they can buy straight off our store on a card. The lead is the buyer.
  *
  * SETUP (one time):
- *   1. Get a free SAM.gov API key: sam.gov → sign in → Account Details → API Key.
- *   2. In Apps Script: Project Settings → Script Properties → add SAM_API_KEY = <key>.
- *      (or run setApiKey('yourkey') once from the editor, then delete the call)
- *   3. Run setup() once (grant permissions). It creates the sheet + a daily trigger.
- *   4. Optional: set DIGEST_EMAIL below to get a daily email of new leads.
+ *   1. Free SAM.gov API key: sam.gov -> sign in -> Account Details -> API Key.
+ *   2. Apps Script: Project Settings -> Script Properties ->
+ *        Property = SAM_API_KEY   (this exact name)
+ *        Value    = <your key>
+ *   3. Run setup() once (grant permissions). Builds the sheet + hourly trigger + first pull.
+ *   4. Deploy -> New deployment -> type "Web app" ->
+ *        Execute as: Me     Who has access: Anyone   ->  Deploy.
+ *      Copy the Web app URL and send it to your dad. That's the dashboard.
+ *   5. (Optional) set DIGEST_EMAIL below for an email alert of new leads.
  *
- * Run testRun() any time for a one-off pull without waiting for the trigger.
+ * Run testRun() any time for a one-off pull.
  */
 
-// ─────────────────────────────  CONFIG  ─────────────────────────────
+// ===============================  CONFIG  ===============================
 var CONFIG = {
-  // Product categories we sell. We query SAM.gov server-side by NAICS, then
-  // additionally keep anything whose PSC (classification code) is in PSC_KEEP.
+  // TECHNOLOGY categories we sell, queried server-side by NAICS.
   NAICS: [
     '423430', // Computer & peripheral equipment & software merchant wholesalers (our core reseller code)
     '334111', // Electronic computer manufacturing
+    '334112', // Computer storage device manufacturing
     '334118', // Computer terminal & other peripheral equipment
     '511210', // Software publishers
-    '541519', // Other computer-related services (VAR / IT)
-    '424120', // Stationery & office-supplies merchant wholesalers
-    '453210'  // Office supplies & stationery stores
+    '541512', // Computer systems design services
+    '541519'  // Other computer-related services (VAR / IT)
   ],
-  // Product Service Codes worth keeping even if NAICS is broad (70xx = IT, 75xx = office).
-  PSC_KEEP_PREFIX: ['70', '7010', '7021', '7025', '7030', '7035', '7045', '7050',
-                    '5805', '5810', '7490', '7510', '7520', '6010'],
-  // Procurement (notice) types to keep — the buy-side, early-signal ones.
+  // Product Service Codes kept (prefix match). 70 = General-purpose IT/ADP equipment & software,
+  // 58 = Communications/detection/coherent-radiation, D3 = IT & Telecom services.
+  PSC_KEEP_PREFIX: ['70', '58', 'D3'],
+  // Notice types to keep - buy-side, early-signal ones.
   //   k = Combined Synopsis/Solicitation, o = Solicitation, p = Presolicitation,
   //   r = Sources Sought, s = Special Notice, i = Intent to Bundle.
   PTYPES_KEEP: ['k', 'o', 'p', 'r', 's', 'i'],
-  // How many days back to pull on each run (daily trigger → 2 gives a safety overlap).
-  LOOKBACK_DAYS: 2,
+  // Dollar ceiling for the "micro-buy" flag and the dashboard's default filter.
+  VALUE_CAP: 15000,
+  // How many days back to pull on each run (hourly trigger -> small lookback w/ overlap).
+  LOOKBACK_DAYS: 3,
   // Only keep notices that still have a POC email (the whole point is direct outreach).
   REQUIRE_EMAIL: true,
   // Sheet + email
-  SHEET_NAME: 'Gov Leads',
-  DIGEST_EMAIL: '', // e.g. 'erwin@uniwidemerchandise.com' — leave '' to disable email digest
+  SHEET_NAME: 'Gov Tech Leads',
+  DIGEST_EMAIL: '', // e.g. 'erwin@uniwidemerchandise.com' - leave '' to disable email alerts
   // Restrict to certain states' place-of-performance (e.g. ['TX','OK']). Empty = nationwide.
   STATES: [],
+  // Branding shown on the dashboard
+  BRAND: 'Uniwide Merchandise',
   // API
   API_BASE: 'https://api.sam.gov/opportunities/v2/search',
-  PAGE_SIZE: 1000,      // max 1000
+  PAGE_SIZE: 1000,       // max 1000
   MAX_PAGES_PER_NAICS: 5 // safety cap on pagination per NAICS per run
 };
 
-var HEADERS = ['Posted', 'Priority', 'Title', 'Agency / Office', 'NAICS', 'PSC',
-  'Notice Type', 'Set-Aside', 'Response Deadline', 'POC Name', 'POC Email',
+var HEADERS = ['First Seen', 'Posted', 'Priority', 'Title', 'Agency / Office', 'NAICS', 'PSC',
+  'Notice Type', 'Set-Aside', 'Est. Value', 'Response Deadline', 'POC Name', 'POC Email',
   'POC Phone', 'Solicitation #', 'Link', 'Notice ID', 'Status'];
 
-// ─────────────────────────────  ENTRY POINTS  ─────────────────────────────
+// ===============================  WEB APP (dashboard)  ===============================
 
-/** One-time setup: validates key, builds the sheet, installs the daily trigger. */
+/** Serves the shareable dashboard. Deploy this project as a Web App (access: Anyone). */
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Dashboard')
+    .setTitle('Gov Tech Leads - ' + CONFIG.BRAND)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/** Called by the dashboard (google.script.run) to load current leads + stats. */
+function getDashboardData() {
+  var sheet = ensureSheet_();
+  var last = sheet.getLastRow();
+  var leads = [];
+  if (last >= 2) {
+    var values = sheet.getRange(2, 1, last - 1, HEADERS.length).getValues();
+    var idx = {};
+    HEADERS.forEach(function (h, i) { idx[h] = i; });
+    leads = values.map(function (r) {
+      var v = r[idx['Est. Value']];
+      return {
+        firstSeen: toIso_(r[idx['First Seen']]),
+        posted: String(r[idx['Posted']] || ''),
+        priority: Number(r[idx['Priority']]) || 0,
+        title: String(r[idx['Title']] || ''),
+        agency: String(r[idx['Agency / Office']] || ''),
+        naics: String(r[idx['NAICS']] || ''),
+        psc: String(r[idx['PSC']] || ''),
+        type: String(r[idx['Notice Type']] || ''),
+        setAside: String(r[idx['Set-Aside']] || ''),
+        value: (v === '' || v === null) ? null : Number(v),
+        deadline: String(r[idx['Response Deadline']] || ''),
+        pocName: String(r[idx['POC Name']] || ''),
+        pocEmail: String(r[idx['POC Email']] || ''),
+        pocPhone: String(r[idx['POC Phone']] || ''),
+        solNum: String(r[idx['Solicitation #']] || ''),
+        link: String(r[idx['Link']] || ''),
+        noticeId: String(r[idx['Notice ID']] || ''),
+        status: String(r[idx['Status']] || '')
+      };
+    });
+  }
+
+  var now = Date.now();
+  var dayMs = 86400000;
+  var stats = {
+    total: leads.length,
+    new24h: 0,
+    new7d: 0,
+    highPriority: 0,
+    micro: 0
+  };
+  leads.forEach(function (l) {
+    var seen = l.firstSeen ? new Date(l.firstSeen).getTime() : 0;
+    if (seen && now - seen <= dayMs) stats.new24h++;
+    if (seen && now - seen <= 7 * dayMs) stats.new7d++;
+    if (l.priority >= 75) stats.highPriority++;
+    if (l.value === null || l.value <= CONFIG.VALUE_CAP) stats.micro++;
+  });
+
+  return {
+    brand: CONFIG.BRAND,
+    generatedAt: new Date().toISOString(),
+    valueCap: CONFIG.VALUE_CAP,
+    stats: stats,
+    leads: leads
+  };
+}
+
+/** Optional: dashboard "Sync now" button -> live pull. Returns count added. */
+function syncNow() {
+  try { return { ok: true, added: runLeadSync() }; }
+  catch (e) { return { ok: false, error: String(e) }; }
+}
+
+// ===============================  ENTRY POINTS  ===============================
+
+/** One-time setup: validates key, builds the sheet, installs the hourly trigger. */
 function setup() {
   if (!getApiKey_()) throw new Error('Set SAM_API_KEY in Script Properties first (see header).');
   ensureSheet_();
-  createDailyTrigger_();
-  Logger.log('Setup complete. Sheet "%s" ready and daily trigger installed.', CONFIG.SHEET_NAME);
-  runLeadSync(); // do an initial pull right away
+  createSyncTrigger_();
+  Logger.log('Setup complete. Sheet "%s" ready and hourly trigger installed.', CONFIG.SHEET_NAME);
+  runLeadSync(); // initial pull
 }
 
-/** Manual one-off pull (safe to run anytime). */
-function testRun() { runLeadSync(); }
+/** Manual one-off pull (safe to run anytime). Returns count added. */
+function testRun() { return runLeadSync(); }
 
 /** Helper to store the API key from the editor: setApiKey('xxxx') then delete the call. */
 function setApiKey(key) {
@@ -80,11 +168,11 @@ function setApiKey(key) {
   Logger.log('SAM_API_KEY saved.');
 }
 
-// ─────────────────────────────  MAIN  ─────────────────────────────
+// ===============================  MAIN  ===============================
 
 function runLeadSync() {
   var apiKey = getApiKey_();
-  if (!apiKey) throw new Error('Missing SAM_API_KEY (Project Settings → Script Properties).');
+  if (!apiKey) throw new Error('Missing SAM_API_KEY (Project Settings -> Script Properties).');
 
   var sheet = ensureSheet_();
   var existingIds = readExistingNoticeIds_(sheet);
@@ -125,18 +213,20 @@ function runLeadSync() {
   newLeads.sort(function (a, b) { return b.priority - a.priority; });
 
   if (newLeads.length) {
+    var stamp = new Date().toISOString();
     var rows = newLeads.map(function (l) {
-      return [l.posted, l.priority, l.title, l.agency, l.naics, l.psc, l.type,
-        l.setAside, l.deadline, l.pocName, l.pocEmail, l.pocPhone, l.solNum,
-        l.link, l.noticeId, 'New'];
+      return [stamp, l.posted, l.priority, l.title, l.agency, l.naics, l.psc, l.type,
+        l.setAside, (l.value === null ? '' : l.value), l.deadline, l.pocName, l.pocEmail,
+        l.pocPhone, l.solNum, l.link, l.noticeId, 'New'];
     });
     sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, HEADERS.length).setValues(rows);
     if (CONFIG.DIGEST_EMAIL) sendDigest_(newLeads);
   }
   Logger.log('Run complete: %s new lead(s) added.', newLeads.length);
+  return newLeads.length;
 }
 
-// ─────────────────────────────  SAM.gov API  ─────────────────────────────
+// ===============================  SAM.gov API  ===============================
 
 function fetchOpportunities_(apiKey, params) {
   var url = CONFIG.API_BASE + '?api_key=' + encodeURIComponent(apiKey);
@@ -156,7 +246,7 @@ function fetchOpportunities_(apiKey, params) {
   return null;
 }
 
-// ─────────────────────────────  TRANSFORM / FILTER  ─────────────────────────────
+// ===============================  TRANSFORM / FILTER  ===============================
 
 /** Convert a raw opportunity into a lead row, or null if it should be skipped. */
 function toLead_(opp) {
@@ -168,7 +258,7 @@ function toLead_(opp) {
   var psc = String(opp.classificationCode || '');
   if (psc && CONFIG.PSC_KEEP_PREFIX.length) {
     var pscOk = CONFIG.PSC_KEEP_PREFIX.some(function (p) { return psc.indexOf(p) === 0; });
-    // Keep it if PSC matches OR PSC is blank (some notices omit it) — don't over-filter.
+    // Keep if PSC matches OR PSC blank (some notices omit it) OR NAICS is one of ours - don't over-filter.
     if (psc && !pscOk && !isProductNaics_(opp.naicsCode)) return null;
   }
 
@@ -181,6 +271,8 @@ function toLead_(opp) {
   var poc = bestPoc_(opp.pointOfContact);
   if (CONFIG.REQUIRE_EMAIL && !poc.email) return null;
 
+  var value = estValue_(opp);
+
   return {
     noticeId: opp.noticeId,
     posted: opp.postedDate || '',
@@ -190,18 +282,27 @@ function toLead_(opp) {
     psc: psc,
     type: opp.type || '',
     setAside: opp.typeOfSetAsideDescription || opp.typeOfSetAside || '',
+    value: value,
     deadline: opp.responseDeadLine || '',
     pocName: poc.fullName,
     pocEmail: poc.email,
     pocPhone: poc.phone,
     solNum: opp.solicitationNumber || '',
     link: opp.uiLink || '',
-    priority: scoreLead_(opp, ptypeCode, poc)
+    priority: scoreLead_(opp, ptypeCode, poc, value)
   };
 }
 
-/** Heuristic 0–100 priority: early-signal + small-biz + reachable scores higher. */
-function scoreLead_(opp, ptypeCode, poc) {
+/** Pull a published dollar value if present (award amount). null when unposted. */
+function estValue_(opp) {
+  var amt = opp.award && (opp.award.amount != null ? opp.award.amount : null);
+  if (amt == null || amt === '') return null;
+  var n = Number(String(amt).replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+/** Heuristic 0-100 priority: early-signal + small-biz + reachable + micro-sized scores higher. */
+function scoreLead_(opp, ptypeCode, poc, value) {
   var s = 40;
   if (ptypeCode === 'r') s += 25;            // Sources Sought = earliest, shape the buy
   if (ptypeCode === 'k') s += 20;            // Combined Synopsis/Solicitation = ready to buy
@@ -211,6 +312,7 @@ function scoreLead_(opp, ptypeCode, poc) {
   if (/small business|8\(a\)|wosb|sdvosb|hubzone|veteran/.test(sa)) s += 15; // friendly to a small reseller
   if (poc.email) s += 8;
   if (isProductNaics_(opp.naicsCode)) s += 5;
+  if (value !== null && value <= CONFIG.VALUE_CAP) s += 10; // confirmed micro-buy sized
   if (opp.active === 'Yes') s += 3;
   return Math.min(100, s);
 }
@@ -228,7 +330,7 @@ function isProductNaics_(n) {
   return CONFIG.NAICS.indexOf(n) !== -1;
 }
 
-/** Map SAM.gov verbose type text → single-letter ptype code. */
+/** Map SAM.gov verbose type text -> single-letter ptype code. */
 function noticeTypeCode_(t) {
   if (t.indexOf('combined') === 0 || t.indexOf('combined synopsis') !== -1) return 'k';
   if (t.indexOf('sources sought') !== -1) return 'r';
@@ -241,10 +343,22 @@ function noticeTypeCode_(t) {
   return t.slice(0, 1);
 }
 
-// ─────────────────────────────  SHEET  ─────────────────────────────
+// ===============================  SHEET  ===============================
 
 function ensureSheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.create('Uniwide Gov Leads');
+  // Standalone scripts have no "active" spreadsheet, and create() makes a NEW file every run.
+  // So we create the spreadsheet once and remember its ID in Script Properties, then reuse it
+  // for every execution (setup, hourly trigger, and the web-app dashboard) -> one shared sheet.
+  var props = PropertiesService.getScriptProperties();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    var id = props.getProperty('SHEET_ID');
+    if (id) { try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; } }
+    if (!ss) {
+      ss = SpreadsheetApp.create('Uniwide Gov Tech Leads');
+      props.setProperty('SHEET_ID', ss.getId());
+    }
+  }
   var sheet = ss.getSheetByName(CONFIG.SHEET_NAME) || ss.insertSheet(CONFIG.SHEET_NAME);
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS])
@@ -265,30 +379,37 @@ function readExistingNoticeIds_(sheet) {
   return ids;
 }
 
-// ─────────────────────────────  TRIGGER + EMAIL  ─────────────────────────────
+// ===============================  TRIGGER + EMAIL  ===============================
 
-function createDailyTrigger_() {
+function createSyncTrigger_() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'runLeadSync') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('runLeadSync').timeBased().everyDays(1).atHour(6).create();
+  ScriptApp.newTrigger('runLeadSync').timeBased().everyHours(1).create();
 }
 
 function sendDigest_(leads) {
   var top = leads.slice(0, 25);
   var rows = top.map(function (l) {
     return '<tr><td>' + l.priority + '</td><td>' + esc_(l.title) + '</td><td>' + esc_(l.agency) +
-      '</td><td>' + esc_(l.setAside) + '</td><td>' + esc_(l.pocName) + '<br>' + esc_(l.pocEmail) +
+      '</td><td>' + esc_(l.setAside) + '</td><td>' + (l.value === null ? 'TBD' : '$' + l.value.toLocaleString()) +
+      '</td><td>' + esc_(l.pocName) + '<br>' + esc_(l.pocEmail) +
       '</td><td><a href="' + l.link + '">View</a></td></tr>';
   }).join('');
-  var html = '<h2>' + leads.length + ' new government leads</h2>' +
+  var html = '<h2>' + leads.length + ' new government tech leads</h2>' +
     '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Arial;font-size:13px">' +
-    '<tr style="background:#0b1220;color:#fff"><th>Pri</th><th>Title</th><th>Agency</th><th>Set-Aside</th><th>Contact</th><th></th></tr>' +
+    '<tr style="background:#0b1220;color:#fff"><th>Pri</th><th>Title</th><th>Agency</th><th>Set-Aside</th><th>Est. Value</th><th>Contact</th><th></th></tr>' +
     rows + '</table>' +
-    (leads.length > 25 ? '<p>+ ' + (leads.length - 25) + ' more in the sheet.</p>' : '');
-  MailApp.sendEmail({ to: CONFIG.DIGEST_EMAIL, subject: '🏛️ ' + leads.length + ' new gov leads — Uniwide', htmlBody: html });
+    (leads.length > 25 ? '<p>+ ' + (leads.length - 25) + ' more on the dashboard.</p>' : '');
+  MailApp.sendEmail({ to: CONFIG.DIGEST_EMAIL, subject: leads.length + ' new gov tech leads - ' + CONFIG.BRAND, htmlBody: html });
 }
 
 function esc_(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function toIso_(v) {
+  if (!v) return '';
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
+}
 
 function getApiKey_() { return PropertiesService.getScriptProperties().getProperty('SAM_API_KEY'); }
