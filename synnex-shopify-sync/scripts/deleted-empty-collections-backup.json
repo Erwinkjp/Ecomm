@@ -1,0 +1,3067 @@
+[
+  {
+    "handle": "projector-accessories",
+    "title": "Projector Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Projector Accessories"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Projectors Carrying Case"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "phone-cellular-accessories",
+    "title": "Phone/cellular Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Phone/cellular Accessories"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Phone Carrying Case"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "scanner-accessories",
+    "title": "Scanner Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Scanner Accessories"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Scanner Accessory"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Scanner Accessory"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Transfer Roll"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "home-automation-accessories",
+    "title": "Home Automation Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Home Automation Accessories"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "vhf-radios-comm-accessories",
+    "title": "Vhf Radios/comm Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TAG",
+          "relation": "EQUALS",
+          "condition": "Vhf Radios/comm Accessories"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "digital-a-v-devices",
+    "title": "Digital A/v Devices",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Digital A/v Devices"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "music-devices",
+    "title": "Music Devices",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Music Device"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "i-o-device-cables",
+    "title": "I/o Device Cables",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "I/o Device Cable"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "toys-hobbies",
+    "title": "Toys & Hobbies",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Toys & Hobbies"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "pro-sound-ent-options-accessories",
+    "title": "Pro Sound & Ent Options & Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Pro Sound & Ent Options & Accessories"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "physical-accessories-control",
+    "title": "Physical Access Control",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Physical Access Control"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "phone-systems",
+    "title": "Phone Systems",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Phone Systems"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "mobility-communication-devices",
+    "title": "Mobility Communication Devices",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Mobility Communication Device"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "multiplexors",
+    "title": "Multiplexors",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Multiplexor"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "voice-mail-fax-equipment",
+    "title": "Voice Mail/fax Equipment",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Voice Mail/fax Equipment"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "vhf-radios-communication",
+    "title": "Vhf Radios & Communication",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Vhf Radios & Communication"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "modems-connectivity",
+    "title": "Modems/Connectivity",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Modems/Connectivity"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Cable Modem"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "consumer-telephony",
+    "title": "Consumer Telephony",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Consumer Telephony"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "dsu-csus",
+    "title": "Dsu csu's",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Dsu csu's"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "auto-id-printers",
+    "title": "Auto Id Printers",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Auto Id Printer"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Direct Thermal Printer"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Thermal Transfer Printer"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "aidc-pos-software",
+    "title": "Aidc/pos Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Aidc/pos Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "rfid-reader-encoder",
+    "title": "Rfid Reader/encoder",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Rfid Reader/encoder"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "solutions-bundles",
+    "title": "Solutions Bundles",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Solutions Bundles"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "education-training",
+    "title": "Education & Training",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Education & Training"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "technology-training",
+    "title": "Technology Training",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Technology Training"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "application-training",
+    "title": "Application Training",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Application Training"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "certification-training",
+    "title": "Certification Training",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Certification Training"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "business-development",
+    "title": "Business Development",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Business Development"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "ingram-micro-training",
+    "title": "Ingram Micro Training",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Ingram Micro Training"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "programming-training",
+    "title": "Programming Training",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Programming Training"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "im-pts-training",
+    "title": "Im Pts Training",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Im Pts Training"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "health-wellness",
+    "title": "Health & Wellness",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Health & Wellness"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "test-equipment",
+    "title": "Test Equipment",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Test Equipment"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "printers-home-office",
+    "title": "Printers-home/office",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Printers-home/office"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "office-equipment",
+    "title": "Office Equipment",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Office Equipment"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "media-cleaning",
+    "title": "Media/cleaning",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Media/cleaning"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Office Vacuum/Duster"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "managed-services",
+    "title": "Managed Services",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Managed Service"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "installation-service",
+    "title": "Installation Service",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Installation Service"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "ingram-micro-service",
+    "title": "Ingram Micro Service",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Ingram Micro Service"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "help-desk-services",
+    "title": "Help Desk Services",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Help Desk Service"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "carrier-services",
+    "title": "Carrier Services",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Carrier Service"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "floppy-removable-drive",
+    "title": "Floppy/removable Drive",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Floppy"
+        },
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "removable Drive"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "storage-software",
+    "title": "Storage Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Storage Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "virtualization-software",
+    "title": "Virtualization Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Virtualization Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "office-productivity",
+    "title": "Office Productivity",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Office Productivity"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "it-management-software",
+    "title": "IT Management Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "It Management Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "data-management-software",
+    "title": "Data Management Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Data Management Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "digital-imaging-software",
+    "title": "Digital Imaging Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Digital Imaging Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "business-solution-software",
+    "title": "Business Solution Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Business Solution Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "developer-software",
+    "title": "Developer Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Developer Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "communications-software",
+    "title": "Communications Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Communication Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "utility-software",
+    "title": "Utility Software",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Utility Software"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Software Licensing"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "personal-interest-software",
+    "title": "Personal Interest Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Personal Interest"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "host-access-software",
+    "title": "Host Access Software",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Host Access Software"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Software Licensing"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "education-software",
+    "title": "Education Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Education Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "reference-software",
+    "title": "Reference Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Reference Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "finance-software",
+    "title": "Finance Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Finance Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "audio-cable",
+    "title": "Audio Cable",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Audio Cable"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "mounting-adapter",
+    "title": "Mounting Adapter",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Mounting Adapter"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "speaker-grill",
+    "title": "Speaker Grill",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Speaker Grill"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "lg",
+    "title": "LG",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "EQUALS",
+          "condition": "LG"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Notebook"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "privacy-filter",
+    "title": "Privacy Filter",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Privacy Filter"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "transfer-roll",
+    "title": "Transfer Roll",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Transfer Roll"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "multipurpose-label",
+    "title": "Multipurpose Label",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Multipurpose Label"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "thermal-transfer-printer",
+    "title": "Thermal Transfer Printer",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Thermal Transfer Printer"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "medical-label",
+    "title": "Medical Label",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Medical Label"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "bezel-panel",
+    "title": "Bezel Panel",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Bezel Panel"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "ribbon-cartridge",
+    "title": "Ribbon Cartridge",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Ribbon Cartridge"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "barcode-label",
+    "title": "Barcode Label",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Barcode Label"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "mounting-bracket",
+    "title": "Mounting Bracket",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Mounting Bracket"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "carrying-case",
+    "title": "Carrying Case",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Carrying Case"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Carrying Case (Backpack)"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "mobile-phone-carrying-case",
+    "title": "Mobile Phone Carrying Case",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Mobile Phone Carrying Case"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "cell-mobile-phone-battery",
+    "title": "Cell/Mobile Phone Battery",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Cell/Mobile Phone Battery"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "battery-charger",
+    "title": "Battery Charger",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Battery Charger"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "cleaning-card-for-printer-head",
+    "title": "Cleaning Card - For Printer Head",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TAG",
+          "relation": "EQUALS",
+          "condition": "Cleaning Card - For Printer Head"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "cleaning-kit-for-printer-head",
+    "title": "Cleaning Kit - For Printer Head",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Cleaning Kit - For Printer Head"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "ribbon-dye-sublimation",
+    "title": "Ribbon - Dye Sublimation",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Ribbon - Dye Sublimation"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "docking-bar-code-scanner",
+    "title": "Docking - Bar Code Scanner",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Docking - Bar Code Scanner"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "wired-mobile-printer",
+    "title": "Wired - Mobile Printer",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Wired - Mobile Printer"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "cradle-docking",
+    "title": "Cradle - Docking",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Cradle - Docking"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "kit-cutter-for-linerless",
+    "title": "KIT CUTTER FOR LINERLESS",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "KIT CUTTER FOR LINERLESS"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "mouse-pad",
+    "title": "Mouse Pad",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Mouse Pad"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "graphic-adapter",
+    "title": "Graphic Adapter",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Graphic Adapter"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "video-cable",
+    "title": "Video Cable",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Video Cable"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "kvm-switchbox",
+    "title": "KVM Switchbox",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "KVM Switchbox"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "video-switchbox",
+    "title": "Video Switchbox",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Video Switchbox"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "kvm-cable",
+    "title": "KVM Cable",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "KVM Cable"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "ram-module",
+    "title": "Ram Module",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Ram Module"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "power-strip",
+    "title": "Power Strip",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Power Strip"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "outdoor-fan",
+    "title": "Outdoor Fan",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Outdoor Fan"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "gaming-headset-stand",
+    "title": "Gaming Headset Stand",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Gaming Headset Stand"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "keyboard-cover-case",
+    "title": "Keyboard/Cover Case",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Keyboard/Cover Case"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "rf-receiver",
+    "title": "RF Receiver",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "RF Receiver"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "stylus",
+    "title": "Stylus",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Stylus"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "standard-power-cord",
+    "title": "Standard Power Cord",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Standard Power Cord"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "mounting-bar",
+    "title": "Mounting Bar",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Mounting Bar"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "absen",
+    "title": "Absen",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Absen"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "software-licensing",
+    "title": "Software Licensing",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Software Licensing"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "absolute-resilience",
+    "title": "Absolute Resilience",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Absolute Resilience"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "cable-lock",
+    "title": "Cable Lock",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Cable Lock"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "monitor-stand",
+    "title": "Monitor Stand",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Monitor Stand"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "back-seat-rest",
+    "title": "Back/Seat Rest",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Back/Seat Rest"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "service",
+    "title": "Service",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Service"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "network-cable",
+    "title": "Network Cable",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Network Cable"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "notebook-stand",
+    "title": "Notebook Stand",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Notebook Stand"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "rack-cabinet",
+    "title": "Rack Cabinet",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Rack Cabinet"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "drive-mount-kit",
+    "title": "Drive Mount Kit",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Drive Mount Kit"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "electric-voltage-measuring-device",
+    "title": "Electric Voltage Measuring Device",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Electric Voltage Measuring Device"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "voltage-sensor",
+    "title": "Voltage Sensor",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Voltage Sensor"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "a-v-adapter",
+    "title": "A/V Adapter",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "A/V Adapter"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "power-module",
+    "title": "Power Module",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Power Module"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "proprietary-power-supply",
+    "title": "Proprietary Power Supply",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Proprietary Power Supply"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "data-transfer-adapter",
+    "title": "Data Transfer Adapter",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Data Transfer Adapter"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "device-remote-control",
+    "title": "Device Remote Control",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Device Remote Control"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "serial-parallel-io",
+    "title": "Serial/Parallel & Io",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Serial/Parallel & Io"
+        },
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "USB Adapter"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "usb-adapter",
+    "title": "USB Adapter",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "USB Adapter"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "wireless-presentation-gateway",
+    "title": "Wireless Presentation Gateway",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Wireless Presentation Gateway"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "label-printer-supplies",
+    "title": "Label Printer Supplies",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Label Printer Supplies"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "vacuums-floor-care",
+    "title": "Vacuums & Floor Care",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Vacuums & Floor Care"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "cleva",
+    "title": "Cleva",
+    "ruleSet": {
+      "appliedDisjunctively": true,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Cleva"
+        },
+        {
+          "column": "TITLE",
+          "relation": "STARTS_WITH",
+          "condition": "Cleva"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "ethernet-cable",
+    "title": "Ethernet Cable",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Ethernet Cable"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "carrying-case-backpack",
+    "title": "Carrying Case (Backpack)",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Carrying Case (Backpack)"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "video-adapter",
+    "title": "Video Adapter",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Video Adapter"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "thunderbolt-lightning-cables",
+    "title": "Thunderbolt & Lightning Cables",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Thunderbolt & Lightning Cables"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "scanner-stand",
+    "title": "Scanner Stand",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Scanner Stand"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "webcam-cover",
+    "title": "Webcam Cover",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Webcam Cover"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "grilling-smoker-accessories",
+    "title": "Grilling & Smoker Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Grilling & Smoker Accessories"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "pressure-washer",
+    "title": "Pressure Washer",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Pressure Washer"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "upright-vacuum",
+    "title": "Upright Vacuum",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Upright Vacuum"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "robotic-vacuums",
+    "title": "Robotic Vacuums",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Robotic Vacuums"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "ecovacs",
+    "title": "ECOVACS",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "ECOVACS"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "auto-accessories",
+    "title": "Auto Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Auto Accessories"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "office-vacuum-duster",
+    "title": "Office Vacuum/Duster",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Office Vacuum/Duster"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "display-stand",
+    "title": "Display Stand",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Display Stand"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "mounting-arm",
+    "title": "Mounting Arm",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Mounting Arm"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "ceiling-mount",
+    "title": "Ceiling Mount",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Ceiling Mount"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "display-cart",
+    "title": "Display Cart",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Display Cart"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "mounting-adapter-kit",
+    "title": "Mounting Adapter Kit",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Mounting Adapter Kit"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "fitbit",
+    "title": "Fitbit",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TITLE",
+          "relation": "CONTAINS",
+          "condition": "Fitbit"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "data-transfer-power-cable",
+    "title": "Data Transfer/Power Cable",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Data Transfer/Power Cable"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "charging-cable",
+    "title": "Charging Cable",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Charging Cable"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "home-appliances",
+    "title": "Home Appliances",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TAG",
+          "relation": "EQUALS",
+          "condition": "home-appliances"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "drones",
+    "title": "Drones",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TAG",
+          "relation": "EQUALS",
+          "condition": "drones"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "input-cables",
+    "title": "Input Cables",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Input Cables"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "input-device-accessories",
+    "title": "Input Device Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Input Device Accessories"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "cache-memory",
+    "title": "Cache Memory",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Cache Memory"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "network-accessories",
+    "title": "Network Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Network Accessories"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "av-accessories",
+    "title": "AV Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "AV Accessories"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "av-cables",
+    "title": "AV Cables",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "AV Cables"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "av-players-recorders",
+    "title": "AV Players & Recorders",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "AV Players & Recorders"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "gps",
+    "title": "GPS",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "GPS"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "iphone-cases",
+    "title": "iPhone Cases",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "iPhone Cases"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "android-cases",
+    "title": "Android Cases",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Android Cases"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "phone-chargers",
+    "title": "Phone Chargers",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Phone Chargers"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "cell-phone-accessories",
+    "title": "Cell Phone Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Cell Phone Accessories"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "gaming-accessories",
+    "title": "Gaming Accessories",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Gaming Accessories"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "console-software",
+    "title": "Console Software",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Console Software"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "vacuums",
+    "title": "Vacuums",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Vacuums"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "fans",
+    "title": "Fans",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Fans"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  },
+  {
+    "handle": "water-coolers",
+    "title": "Water Coolers",
+    "ruleSet": {
+      "appliedDisjunctively": false,
+      "rules": [
+        {
+          "column": "TYPE",
+          "relation": "EQUALS",
+          "condition": "Water Coolers"
+        },
+        {
+          "column": "VARIANT_INVENTORY",
+          "relation": "GREATER_THAN",
+          "condition": "0"
+        }
+      ]
+    }
+  }
+]

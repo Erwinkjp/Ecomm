@@ -1,0 +1,306 @@
+[
+  {
+    "handle": "pro-sound-ent-devices",
+    "title": "Pro Sound & Ent Devices"
+  },
+  {
+    "handle": "presentation-devices",
+    "title": "Presentation Devices"
+  },
+  {
+    "handle": "portable-computers",
+    "title": "Portable Computers"
+  },
+  {
+    "handle": "server-computers",
+    "title": "Server Computers"
+  },
+  {
+    "handle": "barebones-system",
+    "title": "Barebones System"
+  },
+  {
+    "handle": "adc-mobile-terminals",
+    "title": "Adc Mobile Terminals"
+  },
+  {
+    "handle": "specialty-displays",
+    "title": "Specialty Displays"
+  },
+  {
+    "handle": "content-networking",
+    "title": "Content Networking"
+  },
+  {
+    "handle": "routers-components",
+    "title": "Routers & Components"
+  },
+  {
+    "handle": "network-interface-cd",
+    "title": "Network Interface Cd"
+  },
+  {
+    "handle": "backup-devices",
+    "title": "Backup Devices"
+  },
+  {
+    "handle": "san-infrastructure",
+    "title": "San Infrastructure"
+  },
+  {
+    "handle": "flash-memory-devices",
+    "title": "Flash Memory Devices"
+  },
+  {
+    "handle": "drive-enclosures",
+    "title": "Drive Enclosures"
+  },
+  {
+    "handle": "networked-storage",
+    "title": "Networked Storage"
+  },
+  {
+    "handle": "unified-network-storage",
+    "title": "Unified Network Storage"
+  },
+  {
+    "handle": "sound-bar-speaker",
+    "title": "Sound Bar Speaker"
+  },
+  {
+    "handle": "chromebook",
+    "title": "Chromebook"
+  },
+  {
+    "handle": "keyboard",
+    "title": "Keyboard"
+  },
+  {
+    "handle": "all-in-one-computer",
+    "title": "All-in-One Computer"
+  },
+  {
+    "handle": "standby-ups",
+    "title": "Standby UPS"
+  },
+  {
+    "handle": "mobile-workstation",
+    "title": "Mobile Workstation"
+  },
+  {
+    "handle": "notebook",
+    "title": "Notebook"
+  },
+  {
+    "handle": "docking-station",
+    "title": "Docking Station"
+  },
+  {
+    "handle": "modem-wireless-router",
+    "title": "Modem/Wireless Router"
+  },
+  {
+    "handle": "tablet",
+    "title": "Tablet"
+  },
+  {
+    "handle": "mobile-terminal",
+    "title": "Mobile Terminal"
+  },
+  {
+    "handle": "webcam",
+    "title": "Webcam"
+  },
+  {
+    "handle": "smart-led-lcd-tv",
+    "title": "Smart LED-LCD TV"
+  },
+  {
+    "handle": "pointing-devices",
+    "title": "Pointing Devices"
+  },
+  {
+    "handle": "gaming-mouse",
+    "title": "Gaming Mouse"
+  },
+  {
+    "handle": "mouse",
+    "title": "Mouse"
+  },
+  {
+    "handle": "keyboard-mouse",
+    "title": "Keyboard & Mouse"
+  },
+  {
+    "handle": "gaming-keyboard",
+    "title": "Gaming Keyboard"
+  },
+  {
+    "handle": "gaming-notebook",
+    "title": "Gaming Notebook"
+  },
+  {
+    "handle": "gaming-desktop-computer",
+    "title": "Gaming Desktop Computer"
+  },
+  {
+    "handle": "device-server",
+    "title": "Device Server"
+  },
+  {
+    "handle": "sfp-mini-gbic",
+    "title": "SFP (mini-GBIC)"
+  },
+  {
+    "handle": "video-capturing-device",
+    "title": "Video Capturing Device"
+  },
+  {
+    "handle": "hard-drive",
+    "title": "Hard Drive"
+  },
+  {
+    "handle": "server",
+    "title": "Server"
+  },
+  {
+    "handle": "wireless-accesses-point",
+    "title": "Wireless Accesses Point"
+  },
+  {
+    "handle": "wi-fi-adapter",
+    "title": "Wi-Fi Adapter"
+  },
+  {
+    "handle": "portable-monitor",
+    "title": "Portable Monitor"
+  },
+  {
+    "handle": "cable-modem",
+    "title": "Cable Modem"
+  },
+  {
+    "handle": "smart-glasses",
+    "title": "Smart Glasses"
+  },
+  {
+    "handle": "microsdxc",
+    "title": "microSDXC"
+  },
+  {
+    "handle": "loudspeaker",
+    "title": "Loudspeaker"
+  },
+  {
+    "handle": "led-lcd-tv",
+    "title": "LED-LCD TV"
+  },
+  {
+    "handle": "thin-client",
+    "title": "Thin Client"
+  },
+  {
+    "handle": "double-conversion-online-ups",
+    "title": "Double Conversion Online UPS"
+  },
+  {
+    "handle": "ethernet-switch",
+    "title": "Ethernet Switch"
+  },
+  {
+    "handle": "flash-drive",
+    "title": "Flash Drive"
+  },
+  {
+    "handle": "sfp",
+    "title": "SFP+"
+  },
+  {
+    "handle": "10gigabit-ethernet-card",
+    "title": "10Gigabit Ethernet Card"
+  },
+  {
+    "handle": "line-interactive-ups",
+    "title": "Line-Interactive UPS"
+  },
+  {
+    "handle": "netbook",
+    "title": "Netbook"
+  },
+  {
+    "handle": "video-conferencing-monitor",
+    "title": "Video Conferencing Monitor"
+  },
+  {
+    "handle": "rugged-notebook",
+    "title": "Rugged Notebook"
+  },
+  {
+    "handle": "lcd-projector",
+    "title": "LCD Projector"
+  },
+  {
+    "handle": "led-projector",
+    "title": "LED Projector"
+  },
+  {
+    "handle": "server-barebones",
+    "title": "Server Barebones"
+  },
+  {
+    "handle": "terminals",
+    "title": "Terminals"
+  },
+  {
+    "handle": "handhelds-pdas",
+    "title": "Handhelds & PDAs"
+  },
+  {
+    "handle": "ai-desktops",
+    "title": "AI Desktops"
+  },
+  {
+    "handle": "ai-laptops",
+    "title": "AI Laptops"
+  },
+  {
+    "handle": "ai-pcs",
+    "title": "AI PCs"
+  },
+  {
+    "handle": "print-servers",
+    "title": "Print Servers"
+  },
+  {
+    "handle": "bluetooth-headphones",
+    "title": "Bluetooth Headphones"
+  },
+  {
+    "handle": "home-audio",
+    "title": "Home Audio"
+  },
+  {
+    "handle": "portable-audio",
+    "title": "Portable Audio"
+  },
+  {
+    "handle": "digital-cameras",
+    "title": "Digital Cameras"
+  },
+  {
+    "handle": "camcorders",
+    "title": "Camcorders"
+  },
+  {
+    "handle": "iphones",
+    "title": "iPhones"
+  },
+  {
+    "handle": "android-phones",
+    "title": "Android Phones"
+  },
+  {
+    "handle": "gaming-systems",
+    "title": "Gaming Systems"
+  }
+]
