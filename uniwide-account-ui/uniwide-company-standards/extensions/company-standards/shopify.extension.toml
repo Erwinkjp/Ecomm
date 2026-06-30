@@ -1,0 +1,47 @@
+# Customer account UI extension — Company Standards
+# https://shopify.dev/api/customer-account-ui-extensions/unstable/configuration
+
+api_version = "2025-07"
+
+# ── Full page: the Company Standards page itself (a page target must stand alone) ──
+[[extensions]]
+name = "Company Standards"
+handle = "company-standards"
+type = "ui_extension"
+uid = "fde590dc-a827-6d78-10bd-ca14af7e1207bf813ed8"
+
+  [[extensions.targeting]]
+  module = "./src/CompanyStandards.jsx"
+  target = "customer-account.page.render"
+
+  [extensions.capabilities]
+  # api_access: read the buyer's B2B context (purchasingCompany)
+  # network_access: fetch the curated list from our Lambda (/b2b/standards)
+  api_access = true
+  network_access = true
+
+# ── Entry point: a link card on the account landing that opens the page above ──
+[[extensions]]
+name = "Company Standards Link"
+handle = "company-standards-link"
+type = "ui_extension"
+uid = "22f659ad-bfbc-4711-b654-a92ad8f39eea"
+
+  [[extensions.targeting]]
+  module = "./src/MenuLink.jsx"
+  target = "customer-account.order-index.block.render"
+
+# ── Checkout: Terms & Agreement gate (expandable terms + required checkbox, blocks payment) ──
+[[extensions]]
+name = "Checkout Terms Agreement"
+handle = "checkout-terms"
+type = "ui_extension"
+uid = "856bf269-3547-4db0-b179-07751540d4c9"
+
+  [[extensions.targeting]]
+  module = "./src/CheckoutTerms.jsx"
+  target = "purchase.checkout.block.render"
+
+  [extensions.capabilities]
+  # network_access: fetch the terms text from our Lambda (/checkout/terms)
+  network_access = true
