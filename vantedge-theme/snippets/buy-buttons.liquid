@@ -24,6 +24,19 @@
       endif
     -%}
 
+    {%- comment -%} Quote-only items (special order): show "Contact for pricing" instead of Sold out. {%- endcomment -%}
+    {%- if product.tags contains 'contact-for-pricing' -%}
+      <div class="product-form">
+        <div class="product-form__buttons form">
+          <a
+            href="mailto:customersupport@uniwidemerchandise.com?subject=Pricing inquiry: {{ product.title | url_encode }}&body=I'd like a quote for: {{ product.title | url_encode }}"
+            class="product-form__submit button button--full-width button--primary"
+          >
+            Contact for pricing
+          </a>
+        </div>
+      </div>
+    {%- else -%}
     <product-form
       class="product-form"
       data-hide-errors="{{ gift_card_recipient_feature_active }}"
@@ -99,6 +112,7 @@
         </div>
       {%- endform -%}
     </product-form>
+    {%- endif -%}
   {%- else -%}
     <div class="product-form">
       <div class="product-form__buttons form">
