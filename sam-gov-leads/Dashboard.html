@@ -1,15 +1,11 @@
-<!-- Uniwide — Government Open-Leads Dashboard (SAM.gov contracts + Grants.gov) -->
+<!-- Uniwide — Government Open-Leads Dashboard: tabbed (Contracts | Grants), equipment-focused -->
 <!-- Apps Script HTML file named "Dashboard". Served by doGet(); calls getUnifiedDashboardData(). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <style>
-  :root{
-    --bg:#0b1220; --panel:#121a2e; --panel2:#16203a; --line:#243150;
-    --txt:#e8edf7; --muted:#93a1c0; --accent:#4f8cff; --good:#27c98a;
-    --warn:#ffb020; --hot:#ff5470; --chip:#1d2942; --grant:#22b8a6;
-  }
+  :root{--bg:#0b1220;--panel:#121a2e;--panel2:#16203a;--line:#243150;--txt:#e8edf7;--muted:#93a1c0;--accent:#4f8cff;--good:#27c98a;--warn:#ffb020;--hot:#ff5470;--chip:#1d2942;--grant:#22b8a6}
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased}
   a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
@@ -21,9 +17,13 @@
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(39,201,138,.5)}70%{box-shadow:0 0 0 8px rgba(39,201,138,0)}100%{box-shadow:0 0 0 0 rgba(39,201,138,0)}}
   .btn{background:var(--chip);color:var(--txt);border:1px solid var(--line);padding:9px 13px;border-radius:9px;font-size:13px;cursor:pointer;font-weight:600}
   .btn:disabled{opacity:.55;cursor:default}
-  .alert{display:none;align-items:center;gap:10px;background:linear-gradient(90deg,#1c2d22,#15233a);border:1px solid #1f6b4a;color:#c7f4dd;padding:11px 14px;border-radius:11px;margin-bottom:14px;font-size:14px}
-  .alert.show{display:flex}
-  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+  .tab{background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);font-size:15px;font-weight:700;padding:10px 16px;cursor:pointer}
+  .tab .cnt{display:inline-block;margin-left:7px;font-size:12px;background:var(--chip);border-radius:20px;padding:1px 9px;color:var(--muted)}
+  .tab.active{color:var(--txt);border-bottom-color:var(--accent)}
+  .tab.active.grant{border-bottom-color:var(--grant)} .tab.active .cnt{background:rgba(79,140,255,.18);color:#a9c6ff}
+  .tab.active.grant .cnt{background:rgba(34,184,166,.18);color:#7fe6d8}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px}
   .card .n{font-size:26px;font-weight:700;line-height:1.1} .card .l{font-size:12px;color:var(--muted);margin-top:4px}
   .card.hot .n{color:var(--hot)} .card.good .n{color:var(--good)} .card.grant .n{color:var(--grant)} .card.warn .n{color:var(--warn)}
@@ -33,16 +33,15 @@
   .toggle{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);background:var(--panel);border:1px solid var(--line);padding:9px 11px;border-radius:9px;cursor:pointer;user-select:none}
   .toggle input{accent-color:var(--accent)}
   .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:13px;background:var(--panel)}
-  table{border-collapse:collapse;width:100%;min-width:920px;font-size:13.5px}
+  table{border-collapse:collapse;width:100%;min-width:860px;font-size:13.5px}
   thead th{position:sticky;top:0;background:var(--panel2);text-align:left;padding:11px 12px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);white-space:nowrap}
   tbody td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
   tbody tr:hover{background:#0f1830}
-  .src{font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap}
-  .src.contract{background:rgba(79,140,255,.16);color:#a9c6ff} .src.grant{background:rgba(34,184,166,.16);color:#7fe6d8}
   .pri{font-weight:700;border-radius:8px;padding:2px 8px;display:inline-block;min-width:30px;text-align:center;font-size:12px}
   .pri.hi{background:rgba(255,84,112,.16);color:#ff8aa0} .pri.md{background:rgba(255,176,32,.16);color:#ffce73} .pri.lo{background:rgba(147,161,192,.14);color:#b8c4dd}
   .title{font-weight:600;color:var(--txt)} .sub{display:block;color:var(--muted);font-weight:400;margin-top:3px;font-size:12px}
   .val.micro{color:var(--good);font-weight:600} .val.tbd{color:var(--muted)} .val.big{color:var(--warn)}
+  .chip{display:inline-block;background:var(--chip);border:1px solid var(--line);color:var(--muted);font-size:11px;padding:2px 7px;border-radius:20px}
   .new{background:var(--hot);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:6px}
   .empty,.loading{padding:40px;text-align:center;color:var(--muted)}
   footer{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.6}
@@ -54,7 +53,7 @@
   <header class="top">
     <div class="brandblock">
       <h1>🏛️ Government Open Leads</h1>
-      <p id="brandline">Live federal opportunities — contracts (SAM.gov) + grants (Grants.gov)</p>
+      <p id="brandline">Equipment-focused federal opportunities</p>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
       <span class="live"><span class="dot"></span><span id="updated">loading…</span></span>
@@ -63,17 +62,17 @@
     </div>
   </header>
 
-  <div class="alert" id="alert"></div>
+  <div class="tabs">
+    <button class="tab active" id="tabContract" data-tab="contract">Gov Contracts<span class="cnt" id="cntC">0</span></button>
+    <button class="tab grant" id="tabGrant" data-tab="grant">Grants<span class="cnt" id="cntG">0</span></button>
+  </div>
+
   <div class="cards" id="cards"></div>
 
   <div class="controls">
-    <input type="search" id="q" placeholder="Search title, agency, POC, CFDA, opp #…">
-    <select id="source">
-      <option value="all">All sources</option>
-      <option value="contract">Contracts (SAM.gov)</option>
-      <option value="grant">Grants (Grants.gov)</option>
-    </select>
-    <label class="toggle"><input type="checkbox" id="microOnly"> ≤ $15k / micro (contracts)</label>
+    <input type="search" id="q" placeholder="Search…">
+    <label class="toggle"><input type="checkbox" id="equipOnly" checked> Equipment only</label>
+    <label class="toggle" id="microWrap"><input type="checkbox" id="microOnly"> ≤ $15k / micro</label>
     <label class="toggle"><input type="checkbox" id="newOnly"> New (7d)</label>
     <select id="sort">
       <option value="priority">Sort: Priority / Newest</option>
@@ -83,111 +82,123 @@
   </div>
 
   <div class="tablewrap">
-    <table>
-      <thead><tr><th>Source</th><th>Opportunity</th><th>Agency / Office</th><th>Deadline</th><th>Contact / Detail</th></tr></thead>
-      <tbody id="rows"><tr><td colspan="5" class="loading">Loading leads…</td></tr></tbody>
-    </table>
+    <table><thead id="thead"></thead><tbody id="rows"><tr><td class="loading">Loading…</td></tr></tbody></table>
   </div>
 
-  <footer>
-    <strong>Contracts</strong> are direct purchase opportunities (SAM.gov) — click the POC email to introduce Uniwide.
-    <strong>Grants</strong> (Grants.gov) are funding opportunities — an <em>indirect</em> signal: organizations that win tech/education/health grants then buy equipment. Auto-refreshes every 60s.
-  </footer>
+  <footer id="foot"></footer>
 </div>
 
 <script>
-  var ALL = [], CAP = 15000;
-  function isNew(iso,days){ return iso && (Date.now()-new Date(iso).getTime()) <= days*86400000; }
+  var ALL=[], CAP=15000, TAB='contract';
+  // Mirror of Code.gs SERVICE_TERMS — the "Equipment only" client filter hides service/software rows.
+  var SERVICE_TERMS=['cloud','saas','as a service','subscription','software license','software maintenance',
+    'license renewal','managed service','hosting','hosted','technical support','help desk','training',
+    'consulting','staffing','curriculum','maintenance agreement','support services','installation services',
+    ' software',' license',' warranty ','warranties'];
+
+  function isNew(iso,d){ return iso && (Date.now()-new Date(iso).getTime())<=d*86400000; }
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function money(n){ return '$'+Number(n).toLocaleString(); }
   function priClass(p){ return p>=75?'hi':p>=60?'md':'lo'; }
+  function looksEquipment(l){ var t=(l.title||'').toLowerCase(); return !SERVICE_TERMS.some(function(x){return t.indexOf(x.trim())!==-1;}); }
 
-  function card(n,l,cls){ return '<div class="card '+cls+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
-  function renderCards(st){
-    document.getElementById('cards').innerHTML =
-      card(st.total,'Total open leads','') + card(st.contracts,'Contracts','') +
-      card(st.grants,'Grants','grant') + card(st.new7d,'New (7d)','hot') +
-      card(st.micro,'≤ $15k / micro','good');
-  }
+  function bySource(src){ return ALL.filter(function(l){return l.source===src;}); }
 
-  function apply(){
+  function filtered(){
     var q=document.getElementById('q').value.toLowerCase().trim();
-    var source=document.getElementById('source').value;
+    var equipOnly=document.getElementById('equipOnly').checked;
     var microOnly=document.getElementById('microOnly').checked;
     var newOnly=document.getElementById('newOnly').checked;
     var sort=document.getElementById('sort').value;
-
-    var list=ALL.filter(function(l){
-      if(source!=='all' && l.source!==source) return false;
-      if(microOnly && l.source==='contract' && !(l.value===null||l.value<=CAP)) return false;
+    var list=bySource(TAB).filter(function(l){
+      if(equipOnly && !looksEquipment(l)) return false;
+      if(TAB==='contract' && microOnly && !(l.value===null||l.value<=CAP)) return false;
       if(newOnly && !isNew(l.firstSeen,7)) return false;
-      if(q){
-        var hay=(l.title+' '+l.agency+' '+(l.pocName||'')+' '+(l.pocEmail||'')+' '+(l.cfda||'')+' '+(l.number||'')+' '+(l.naics||'')).toLowerCase();
-        if(hay.indexOf(q)===-1) return false;
-      }
+      if(q){ var hay=(l.title+' '+l.agency+' '+(l.pocName||'')+' '+(l.pocEmail||'')+' '+(l.cfda||'')+' '+(l.number||'')+' '+(l.naics||'')).toLowerCase(); if(hay.indexOf(q)===-1) return false; }
       return true;
     });
     list.sort(function(a,b){
-      if(sort==='deadline'){ return (Date.parse(a.deadline)||Infinity)-(Date.parse(b.deadline)||Infinity); }
-      if(sort==='new'){ return new Date(b.firstSeen||0)-new Date(a.firstSeen||0); }
+      if(sort==='deadline') return (Date.parse(a.deadline)||Infinity)-(Date.parse(b.deadline)||Infinity);
+      if(sort==='new') return new Date(b.firstSeen||0)-new Date(a.firstSeen||0);
       return (b.priority||0)-(a.priority||0) || (new Date(b.firstSeen||0)-new Date(a.firstSeen||0));
     });
+    return list;
+  }
 
-    var tb=document.getElementById('rows');
-    if(!list.length){ tb.innerHTML='<tr><td colspan="5" class="empty">No leads match these filters yet.</td></tr>'; return; }
+  function renderCards(){
+    var c=document.getElementById('cards');
+    function card(n,l,cls){ return '<div class="card '+(cls||'')+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
+    var src=bySource(TAB).filter(function(l){return !document.getElementById('equipOnly').checked || looksEquipment(l);});
+    var nnew=src.filter(function(l){return isNew(l.firstSeen,7);}).length;
+    if(TAB==='contract'){
+      var hi=src.filter(function(l){return (l.priority||0)>=75;}).length;
+      var micro=src.filter(function(l){return l.value===null||l.value<=CAP;}).length;
+      c.innerHTML=card(src.length,'Contracts shown','')+card(nnew,'New (7d)','hot')+card(hi,'High priority','warn')+card(micro,'≤ $15k / micro','good');
+    } else {
+      var posted=src.filter(function(l){return (l.status||'').toLowerCase()==='posted';}).length;
+      var fore=src.filter(function(l){return (l.status||'').toLowerCase()==='forecasted';}).length;
+      c.innerHTML=card(src.length,'Grants shown','grant')+card(nnew,'New (7d)','hot')+card(posted,'Posted','good')+card(fore,'Forecasted','');
+    }
+  }
+
+  function render(){
+    document.getElementById('microWrap').style.display = TAB==='contract'?'flex':'none';
+    var thead=document.getElementById('thead');
+    thead.innerHTML = TAB==='contract'
+      ? '<tr><th>Pri</th><th>Opportunity</th><th>Agency / Office</th><th>Deadline</th><th>Contact (POC)</th></tr>'
+      : '<tr><th>Status</th><th>Opportunity</th><th>Agency</th><th>Close date</th><th>Detail</th></tr>';
+    renderCards();
+    var list=filtered(), tb=document.getElementById('rows');
+    if(!list.length){ tb.innerHTML='<tr><td colspan="5" class="empty">No '+TAB+' leads match these filters.</td></tr>'; return; }
     tb.innerHTML=list.map(function(l){
-      var isC = l.source==='contract';
-      var srcBadge='<span class="src '+l.source+'">'+(isC?'Contract':'Grant')+'</span>';
-      var newPill = isNew(l.firstSeen,7)?'<span class="new">NEW</span>':'';
-      var titleLink = l.link ? '<a class="title" href="'+esc(l.link)+'" target="_blank" rel="noopener">'+esc(l.title)+'</a>' : '<span class="title">'+esc(l.title)+'</span>';
-      var sub = isC
-        ? esc(l.type)+' · NAICS '+esc(l.naics)+(l.psc?' · PSC '+esc(l.psc):'')
-        : 'CFDA '+esc(l.cfda||'—')+' · '+esc(l.number||'')+' · '+esc(l.status||'');
-      var pri = isC ? '<span class="pri '+priClass(l.priority)+'">'+l.priority+'</span> ' : '';
-      var deadline = l.deadline ? esc(String(l.deadline).slice(0,10)) : '—';
-      var detail;
-      if(isC){
-        var val = l.value===null?'<span class="val tbd">TBD</span>':(l.value<=CAP?'<span class="val micro">'+money(l.value)+'</span>':'<span class="val big">'+money(l.value)+'</span>');
-        var poc = l.pocEmail?'<a href="mailto:'+esc(l.pocEmail)+'?subject='+encodeURIComponent('Uniwide Merchandise — IT supply for '+(l.title||'your requirement'))+'">'+esc(l.pocName||l.pocEmail)+'</a>':esc(l.pocName||'—');
-        detail = poc+'<span class="sub">'+val+(l.setAside?' · '+esc(l.setAside):'')+'</span>';
-      } else {
-        detail = (l.link?'<a href="'+esc(l.link)+'" target="_blank" rel="noopener">View on Grants.gov</a>':'—')+'<span class="sub">'+esc(l.status||'')+'</span>';
+      var newPill=isNew(l.firstSeen,7)?'<span class="new">NEW</span>':'';
+      var titleLink=l.link?'<a class="title" href="'+esc(l.link)+'" target="_blank" rel="noopener">'+esc(l.title)+'</a>':'<span class="title">'+esc(l.title)+'</span>';
+      if(TAB==='contract'){
+        var val=l.value===null?'<span class="val tbd">TBD</span>':(l.value<=CAP?'<span class="val micro">'+money(l.value)+'</span>':'<span class="val big">'+money(l.value)+'</span>');
+        var poc=l.pocEmail?'<a href="mailto:'+esc(l.pocEmail)+'?subject='+encodeURIComponent('Uniwide Merchandise — IT supply for '+(l.title||'your requirement'))+'">'+esc(l.pocName||l.pocEmail)+'</a>':esc(l.pocName||'—');
+        return '<tr><td><span class="pri '+priClass(l.priority)+'">'+l.priority+'</span></td>'+
+          '<td>'+titleLink+newPill+'<span class="sub">'+esc(l.type)+' · NAICS '+esc(l.naics)+(l.psc?' · PSC '+esc(l.psc):'')+'</span></td>'+
+          '<td>'+esc(l.agency)+'</td><td>'+(l.deadline?esc(String(l.deadline).slice(0,10)):'—')+'</td>'+
+          '<td>'+poc+'<span class="sub">'+val+(l.setAside?' · '+esc(l.setAside):'')+'</span></td></tr>';
       }
-      return '<tr><td>'+srcBadge+'</td><td>'+pri+titleLink+newPill+'<span class="sub">'+sub+'</span></td>'+
-        '<td>'+esc(l.agency)+'</td><td>'+deadline+'</td><td>'+detail+'</td></tr>';
+      return '<tr><td><span class="chip">'+esc(l.status||'—')+'</span></td>'+
+        '<td>'+titleLink+newPill+'<span class="sub">CFDA '+esc(l.cfda||'—')+' · '+esc(l.number||'')+'</span></td>'+
+        '<td>'+esc(l.agency)+'</td><td>'+(l.deadline?esc(String(l.deadline).slice(0,10)):'—')+'</td>'+
+        '<td>'+(l.link?'<a href="'+esc(l.link)+'" target="_blank" rel="noopener">View on Grants.gov</a>':'—')+'</td></tr>';
     }).join('');
+  }
+
+  function setTab(t){
+    TAB=t;
+    document.getElementById('tabContract').classList.toggle('active',t==='contract');
+    document.getElementById('tabGrant').classList.toggle('active',t==='grant');
+    document.getElementById('foot').innerHTML = t==='contract'
+      ? '<strong>Contracts</strong> are direct purchase opportunities (SAM.gov). Click a POC email to introduce Uniwide. "Equipment only" hides service/cloud/software buys.'
+      : '<strong>Grants</strong> (Grants.gov) are funding opportunities — an <em>indirect</em> signal: orgs that win tech grants then buy equipment. Target the likely applicants.';
+    render();
   }
 
   function load(){
     google.script.run.withSuccessHandler(function(d){
       ALL=d.leads||[]; CAP=d.valueCap||15000;
-      document.getElementById('brandline').textContent='Live federal opportunities — contracts (SAM.gov) + grants (Grants.gov) — '+(d.brand||'');
+      document.getElementById('brandline').textContent='Equipment-focused federal opportunities — '+(d.brand||'');
       document.getElementById('updated').textContent='Updated '+new Date(d.generatedAt).toLocaleTimeString();
-      renderCards(d.stats);
-      var a=document.getElementById('alert');
-      if(d.stats.new7d>0){ a.classList.add('show'); a.innerHTML='🔔 <strong>'+d.stats.new7d+'</strong> new lead'+(d.stats.new7d===1?'':'s')+' in the last 7 days across both sources.'; }
-      else a.classList.remove('show');
-      apply();
+      document.getElementById('cntC').textContent=bySource('contract').length;
+      document.getElementById('cntG').textContent=bySource('grant').length;
+      render();
     }).withFailureHandler(function(e){
       document.getElementById('rows').innerHTML='<tr><td colspan="5" class="empty">Could not load: '+esc(e&&e.message||e)+'</td></tr>';
     }).getUnifiedDashboardData();
   }
 
-  ['q','source','microOnly','newOnly','sort'].forEach(function(id){
-    document.getElementById(id).addEventListener(id==='q'?'input':'change',apply);
-  });
-  function wireSync(btnId, fn, label){
-    var b=document.getElementById(btnId);
-    b.addEventListener('click',function(){ b.disabled=true; var t=b.textContent; b.textContent='Syncing…';
-      google.script.run.withSuccessHandler(function(){ b.disabled=false; b.textContent=t; load(); })
-        .withFailureHandler(function(e){ b.disabled=false; b.textContent=t; alert(label+' sync failed: '+(e&&e.message||e)); })[fn]();
-    });
-  }
-  wireSync('syncC','syncNow','Contracts');
-  wireSync('syncG','syncGrants','Grants');
+  document.getElementById('tabContract').addEventListener('click',function(){setTab('contract');});
+  document.getElementById('tabGrant').addEventListener('click',function(){setTab('grant');});
+  ['q','equipOnly','microOnly','newOnly','sort'].forEach(function(id){ document.getElementById(id).addEventListener(id==='q'?'input':'change',render); });
+  function wireSync(btnId,fn,label){ var b=document.getElementById(btnId); b.addEventListener('click',function(){ b.disabled=true; var t=b.textContent; b.textContent='Syncing…';
+    google.script.run.withSuccessHandler(function(){b.disabled=false;b.textContent=t;load();}).withFailureHandler(function(e){b.disabled=false;b.textContent=t;alert(label+' sync failed: '+(e&&e.message||e));})[fn](); }); }
+  wireSync('syncC','syncNow','Contracts'); wireSync('syncG','syncGrants','Grants');
 
-  load();
-  setInterval(load, 60000);
+  setTab('contract'); load(); setInterval(load,60000);
 </script>
 </body>
 </html>

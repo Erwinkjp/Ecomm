@@ -20,10 +20,14 @@ var GRANTS = {
   DETAIL_URL: 'https://www.grants.gov/search-results-detail/',
   // Keyword groups queried one-by-one, then merged + de-duplicated. Tune freely.
   KEYWORDS: [
-    'computer equipment', 'laptops', 'classroom technology',
-    'information technology equipment', 'medical imaging equipment',
-    'audiovisual equipment', 'network infrastructure', 'telehealth equipment',
+    'computer hardware', 'laptops', 'chromebooks', 'desktop computers',
+    'network equipment', 'server hardware', 'audiovisual equipment',
+    'video surveillance equipment', 'diagnostic display', 'classroom technology equipment',
   ],
+  // Drop grants whose TITLE reads as research/training/operating rather than an equipment buy.
+  EXCLUDE_TERMS: ['research', 'training', 'fellowship', 'scholarship', 'planning grant',
+    'workforce', 'curriculum', 'technical assistance', 'capacity building', 'salaries',
+    'study', 'evaluation', 'services program'],
   STATUSES: 'forecasted|posted',   // OPEN only (not closed/archived)
   ROWS: 50,                        // per keyword per run
   SHEET_NAME: 'Grant Leads',
@@ -57,6 +61,8 @@ function syncGrants() {
     opps.forEach(function (o) {
       var id = String(o.id || '');
       if (!id || existing[id] || seen[id]) return;
+      var titleLc = (o.title || '').toLowerCase();
+      if (GRANTS.EXCLUDE_TERMS.some(function (t) { return titleLc.indexOf(t) !== -1; })) return;
       seen[id] = true;
       newRows.push([
         stamp, o.title || '', o.agency || '', (o.cfdaList || []).join(', '),

@@ -33,18 +33,23 @@
 // ===============================  CONFIG  ===============================
 var CONFIG = {
   // TECHNOLOGY categories we sell, queried server-side by NAICS.
+  // Hardware/equipment NAICS only. Dropped software publishers (511210) and IT-services
+  // (541512/541519) so we stop pulling cloud / software / services buys.
   NAICS: [
-    '423430', // Computer & peripheral equipment & software merchant wholesalers (our core reseller code)
+    '423430', // Computer & peripheral equipment & software merchant wholesalers (core reseller)
     '334111', // Electronic computer manufacturing
     '334112', // Computer storage device manufacturing
     '334118', // Computer terminal & other peripheral equipment
-    '511210', // Software publishers
-    '541512', // Computer systems design services
-    '541519'  // Other computer-related services (VAR / IT)
   ],
-  // Product Service Codes kept (prefix match). 70 = General-purpose IT/ADP equipment & software,
-  // 58 = Communications/detection/coherent-radiation, D3 = IT & Telecom services.
-  PSC_KEEP_PREFIX: ['70', '58', 'D3'],
+  // Equipment PSCs only. 70 = general-purpose IT equipment, 58 = comms/electronics equipment.
+  // (Dropped D3 = IT & Telecom SERVICES.) Software PSCs removed via PSC_EXCLUDE_PREFIX.
+  PSC_KEEP_PREFIX: ['70', '58'],
+  PSC_EXCLUDE_PREFIX: ['7030'], // 7030 = ADP software
+  // Skip notices whose TITLE reads as a service/cloud/software buy (equipment focus). Tunable.
+  SERVICE_TERMS: ['cloud', 'saas', 'as a service', 'subscription', 'software license',
+    'software maintenance', 'license renewal', 'managed service', 'hosting', 'hosted',
+    'technical support', 'help desk', 'training', 'consulting', 'staffing', 'curriculum',
+    'maintenance agreement', 'support services', 'installation services'],
   // Notice types to keep - buy-side, early-signal ones.
   //   k = Combined Synopsis/Solicitation, o = Solicitation, p = Presolicitation,
   //   r = Sources Sought, s = Special Notice, i = Intent to Bundle.
@@ -256,11 +261,17 @@ function toLead_(opp) {
 
   // PSC relevance (extra filter on top of the NAICS server query).
   var psc = String(opp.classificationCode || '');
+  // Exclude software/service PSCs (e.g. 7030 ADP software) even within a kept prefix.
+  if (psc && CONFIG.PSC_EXCLUDE_PREFIX && CONFIG.PSC_EXCLUDE_PREFIX.some(function (p) { return psc.indexOf(p) === 0; })) return null;
   if (psc && CONFIG.PSC_KEEP_PREFIX.length) {
     var pscOk = CONFIG.PSC_KEEP_PREFIX.some(function (p) { return psc.indexOf(p) === 0; });
     // Keep if PSC matches OR PSC blank (some notices omit it) OR NAICS is one of ours - don't over-filter.
     if (psc && !pscOk && !isProductNaics_(opp.naicsCode)) return null;
   }
+
+  // Equipment focus: skip service/cloud/software buys detected in the title.
+  var titleLc = (opp.title || '').toLowerCase();
+  if (CONFIG.SERVICE_TERMS.some(function (t) { return titleLc.indexOf(t) !== -1; })) return null;
 
   // Place-of-performance state filter (when more than one state configured).
   if (CONFIG.STATES.length > 1) {
