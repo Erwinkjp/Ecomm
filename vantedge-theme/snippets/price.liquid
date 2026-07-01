@@ -137,9 +137,12 @@
         {{ 'products.product.on_sale' | t }}
       </span>
 
-      <span class="badge price__badge-sold-out color-{{ settings.sold_out_badge_color_scheme }}">
-        {{ 'products.product.sold_out' | t }}
-      </span>
+      {%- comment -%} Quote-only items show "Contact for pricing" (buy-buttons) — hide the Sold out badge. {%- endcomment -%}
+      {%- unless product.tags contains 'contact-for-pricing' -%}
+        <span class="badge price__badge-sold-out color-{{ settings.sold_out_badge_color_scheme }}">
+          {{ 'products.product.sold_out' | t }}
+        </span>
+      {%- endunless -%}
     {%- endif -%}
   </div>
 {% endunless %}

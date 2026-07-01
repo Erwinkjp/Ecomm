@@ -5,6 +5,7 @@ shopify theme push \
   --allow-live \
   --only=snippets/breadcrumbs.liquid \
   --only=snippets/buy-buttons.liquid \
+  --only=snippets/price.liquid \
   --only=snippets/shop-by-sidebar.liquid \
   --only=snippets/spec-sheet.liquid \
   --only=sections/main-product.liquid \
