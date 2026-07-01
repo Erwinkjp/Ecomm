@@ -100,4 +100,34 @@ async function setProductLeadTimes(productIds, leadTimeText) {
   }
 }
 
-module.exports = { setInventoryQuantities, updateVariantPrice, setProductLeadTimes };
+/**
+ * Batch-set Google Shopping custom labels on products so the Shopify "Google &
+ * YouTube" channel can segment the feed. Writes three mm-google-shopping
+ * metafields per product (custom_label_0 = margin tier, custom_label_1 = pricing
+ * basis, custom_label_2 = ad eligibility). Sends up to 25 metafields per call.
+ *
+ * @param {Array<{ ownerId: string, marginTier: string, pricingBasis: string, eligibility: string }>} items
+ */
+async function setGoogleShoppingLabels(items) {
+  if (!items.length) return;
+  const metafields = [];
+  for (const it of items) {
+    metafields.push(
+      { ownerId: it.ownerId, namespace: 'mm-google-shopping', key: 'custom_label_0', value: it.marginTier,   type: 'single_line_text_field' },
+      { ownerId: it.ownerId, namespace: 'mm-google-shopping', key: 'custom_label_1', value: it.pricingBasis,  type: 'single_line_text_field' },
+      { ownerId: it.ownerId, namespace: 'mm-google-shopping', key: 'custom_label_2', value: it.eligibility,   type: 'single_line_text_field' },
+    );
+  }
+
+  for (let i = 0; i < metafields.length; i += 25) {
+    const chunk = metafields.slice(i, i + 25);
+    const data = await graphql(SET_METAFIELDS, { metafields: chunk });
+    const { userErrors } = data.metafieldsSet;
+    if (userErrors?.length) {
+      console.warn(`[google labels] ${userErrors.map(e => e.message).join('; ')}`);
+    }
+    if (i + 25 < metafields.length) await new Promise(r => setTimeout(r, 200));
+  }
+}
+
+module.exports = { setInventoryQuantities, updateVariantPrice, setProductLeadTimes, setGoogleShoppingLabels };

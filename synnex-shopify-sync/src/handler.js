@@ -25,7 +25,7 @@ const { streamCatalogLines, listZipEntries } = require('./synnex/sftp');
 const { createLineParser } = require('./synnex/catalog');
 const { fetchPriceAvailability } = require('./synnex/pricing');
 const { upsertProduct, getAllVariants, getActiveProductsPage, setProductDraft, setProductActive, getUnpublishedProductIds, publishProduct, updateProductContent } = require('./shopify/products');
-const { setInventoryQuantities, updateVariantPrice, setProductLeadTimes } = require('./shopify/inventory');
+const { setInventoryQuantities, updateVariantPrice, setProductLeadTimes, setGoogleShoppingLabels } = require('./shopify/inventory');
 const { toShopifyProduct, applyMarkup, mapCategory, buildTags, normalizeBrand, expandAppleTitle } = require('./transform');
 const { categorize } = require('./categorize');
 const { saveProduct, getAllProducts, getProductByMfrPart, getProductCount, scanProductsPage, getJobState, putJobState } = require('./catalog/products');
@@ -799,6 +799,10 @@ async function runPriceSync() {
   const BATCH_SIZE = skuChunkSize * 5; // 40 * 5 = 200 products → 5 P&A API calls per loop
   const inventoryUpdates = [];
   const specialOrderProductIds = new Set();
+  // Google Shopping feed curation (opt-in). Collect per-product custom labels to
+  // write after pricing, so consumer ads can target only profitable, in-stock SKUs.
+  const googleLabelsEnabled = config.google.labelsEnabled;
+  const googleLabelUpdates = [];
 
   for (let i = 0; i < validProducts.length; i += BATCH_SIZE) {
     if (Date.now() - startedAt > LAMBDA_TIMEOUT_MS) {
@@ -896,6 +900,21 @@ async function runPriceSync() {
             });
             result.pricesUpdated += 1;
 
+            // Google Shopping feed curation: tag margin tier + ad eligibility so
+            // consumer PMax/Shopping campaigns bid only on profitable, in-stock SKUs.
+            if (googleLabelsEnabled && gid) {
+              const margin = sellPrice > 0 ? (sellPrice - unitCost) / sellPrice : 0;
+              const marginTier = margin >= config.google.marginHigh ? 'high'
+                : margin >= config.google.marginMid ? 'mid' : 'low';
+              const eligibility = (qty > 0 && margin >= config.google.marginFloor) ? 'eligible' : 'excluded';
+              googleLabelUpdates.push({
+                ownerId: gid,
+                marginTier,
+                pricingBasis: mapPack > 0 ? 'map' : 'standard',
+                eligibility,
+              });
+            }
+
             // Self-heal: if we previously auto-hid this for a zero price, a real price is
             // back — restore it to the storefront and clear the flag.
             if (gid && product.autoHiddenZeroPrice) {
@@ -913,6 +932,22 @@ async function runPriceSync() {
           }
         }
       }));
+    }
+
+    // Flush this batch's Google Shopping labels now (bounded work per batch) so a large
+    // catalog can't pile into one huge end-of-run flush that overruns the Lambda timeout.
+    if (googleLabelsEnabled && googleLabelUpdates.length) {
+      const GL_CHUNK = 8; // 8 products = 24 metafields <= the 25/call limit
+      for (let k = 0; k < googleLabelUpdates.length; k += GL_CHUNK) {
+        const glChunk = googleLabelUpdates.slice(k, k + GL_CHUNK);
+        try {
+          await setGoogleShoppingLabels(glChunk);
+          result.googleLabeled = (result.googleLabeled || 0) + glChunk.length;
+        } catch (e) {
+          result.errors.push(`google labels: ${e.message}`);
+        }
+      }
+      googleLabelUpdates.length = 0; // reset for the next batch
     }
   }
 

@@ -86,6 +86,17 @@ const config = {
     // isn't genuine hardware (see catalog/junkFilter.js). Set to 0 to disable.
     junkMaxPrice: parseFloatEnv('JUNK_MAX_PRICE', 5),
   },
+  // Google Shopping feed curation. During price-sync, tag each live product with
+  // mm-google-shopping custom labels (margin tier + ad eligibility) so consumer
+  // Performance Max / Shopping campaigns can bid only on profitable, in-stock SKUs.
+  // Off by default — flip GOOGLE_LABELS_ENABLED=true to start writing the labels.
+  google: {
+    labelsEnabled: parseBoolEnv('GOOGLE_LABELS_ENABLED', false),
+    // Gross-margin cutoffs, as a fraction of the sell price ((sell - cost) / sell).
+    marginHigh: parseFloatEnv('GOOGLE_MARGIN_HIGH', 0.25), // >= this  -> custom_label_0 "high"
+    marginMid:  parseFloatEnv('GOOGLE_MARGIN_MID', 0.12),  // >= this  -> "mid", else "low"
+    marginFloor: parseFloatEnv('GOOGLE_MARGIN_FLOOR', 0.10), // below this (or out of stock) -> "excluded"
+  },
   icecat: {
     username: getEnv('ICECAT_USERNAME'),
     // Full Icecat content requires an app_key (paid/Full tier). Blank = Open Icecat (free).

@@ -190,6 +190,25 @@ Parameters:
     Default: '5'
     Description: Price-sync drafts cheap accessory/cable clutter below this $ floor that isn't real hardware (0 disables)
 
+  # Google Shopping feed curation (price-sync writes mm-google-shopping custom labels)
+  GoogleLabelsEnabled:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: When true, price-sync tags products with Google Shopping margin-tier + ad-eligibility labels
+  GoogleMarginHigh:
+    Type: String
+    Default: '0.25'
+    Description: Gross-margin fraction at/above which custom_label_0 = "high"
+  GoogleMarginMid:
+    Type: String
+    Default: '0.12'
+    Description: Gross-margin fraction at/above which custom_label_0 = "mid" (below = "low")
+  GoogleMarginFloor:
+    Type: String
+    Default: '0.10'
+    Description: Below this gross-margin fraction (or out of stock) custom_label_2 = "excluded"
+
 # ─── Conditions ───────────────────────────────────────────────────────────────
 
 Conditions:
@@ -391,6 +410,10 @@ Resources:
           PRICE_MARKUP_PERCENT: !Ref PriceMarkupPercent
           PRICE_MIN_ACTIVE: !Ref PriceMinActive
           JUNK_MAX_PRICE: !Ref JunkMaxPrice
+          GOOGLE_LABELS_ENABLED: !Ref GoogleLabelsEnabled
+          GOOGLE_MARGIN_HIGH: !Ref GoogleMarginHigh
+          GOOGLE_MARGIN_MID: !Ref GoogleMarginMid
+          GOOGLE_MARGIN_FLOOR: !Ref GoogleMarginFloor
       VpcConfig:
         SubnetIds:
           - !Ref PrivateSubnet

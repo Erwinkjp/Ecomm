@@ -68,6 +68,12 @@ parts = [
     add("SynnexOrderStatusUrl",   "SYNNEX_ORDER_STATUS_URL"),
     add("SynnexRmaUrl",           "SYNNEX_RMA_URL",          always=True),
     add("SynnexRmaStatusUrl",     "SYNNEX_RMA_STATUS_URL",   always=True),
+    # Google Shopping feed curation (skipped when unset -> template defaults apply;
+    # set GOOGLE_LABELS_ENABLED=true to turn on margin-tier + eligibility labels).
+    add("GoogleLabelsEnabled",    "GOOGLE_LABELS_ENABLED"),
+    add("GoogleMarginHigh",       "GOOGLE_MARGIN_HIGH"),
+    add("GoogleMarginMid",        "GOOGLE_MARGIN_MID"),
+    add("GoogleMarginFloor",      "GOOGLE_MARGIN_FLOOR"),
 ]
 
 print(" ".join(p for p in parts if p))
